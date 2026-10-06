@@ -79,7 +79,7 @@
 	.toggle input {
 		width: 20px;
 		height: 20px;
-		accent-color: var(--color-turf);
+		accent-color: var(--color-brand);
 	}
 
 	code {

@@ -12,19 +12,12 @@
 </script>
 
 <header class="masthead">
-	<svg class="pitch" viewBox="0 0 1000 220" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
-		<g fill="none" stroke="currentColor" stroke-width="2">
-			<rect x="12" y="12" width="976" height="196" />
-			<path d="M500 12v196" />
-			<circle cx="500" cy="110" r="58" />
-			<circle cx="500" cy="110" r="3" fill="currentColor" />
-			<rect x="12" y="52" width="112" height="116" />
-			<rect x="12" y="84" width="44" height="52" />
-			<path d="M124 82a34 34 0 0 1 0 56" />
-			<rect x="876" y="52" width="112" height="116" />
-			<rect x="944" y="84" width="44" height="52" />
-			<path d="M876 82a34 34 0 0 0 0 56" />
-		</g>
+	<!-- Eight stars in an arc, as on the flag. -->
+	<svg class="stars" viewBox="0 0 400 220" aria-hidden="true">
+		<path
+			fill="currentColor"
+			d="M34.9 144.2L46.8 145.9L52.9 135.4L54.9 147.3L66.7 149.8L56.1 155.5L57.4 167.5L48.7 159.1L37.7 164.0L43.0 153.2zM69.4 98.1L80.3 103.4L89.2 95.3L87.6 107.2L98.1 113.2L86.2 115.3L83.7 127.1L78.0 116.5L66.1 117.8L74.4 109.1zM116.4 64.8L125.1 73.1L136.1 68.0L130.9 78.9L139.0 87.8L127.1 86.2L121.2 96.7L119.0 84.9L107.1 82.5L117.7 76.7zM171.2 47.2L177.0 57.8L189.0 56.3L180.7 65.1L185.8 76.1L174.9 70.9L166.1 79.2L167.6 67.2L157.0 61.3L168.9 59.1zM228.8 47.2L231.1 59.1L243.0 61.3L232.4 67.2L233.9 79.2L225.1 70.9L214.2 76.1L219.3 65.1L211.0 56.3L223.0 57.8zM283.6 64.8L282.3 76.7L292.9 82.5L281.0 84.9L278.8 96.7L272.9 86.2L261.0 87.8L269.1 78.9L263.9 68.0L274.9 73.1zM330.6 98.1L325.6 109.1L333.9 117.8L322.0 116.5L316.3 127.1L313.8 115.3L301.9 113.2L312.4 107.2L310.8 95.3L319.7 103.4zM365.1 144.2L357.0 153.2L362.3 164.0L351.3 159.1L342.6 167.5L343.9 155.5L333.3 149.8L345.1 147.3L347.1 135.4L353.2 145.9z"
+		/>
 	</svg>
 	<div class="container inner">
 		<div class="titles">
@@ -63,23 +56,19 @@
 		position: relative;
 		overflow: hidden;
 		padding-top: env(safe-area-inset-top, 0px);
-		background:
-			repeating-linear-gradient(90deg, transparent 0 90px, var(--color-turf-stripe) 90px 180px),
-			var(--color-turf);
-		color: var(--color-on-turf);
+		background: linear-gradient(120deg, var(--color-brand) 30%, var(--color-brand-deep));
+		color: var(--color-on-brand);
 	}
 
-	.pitch {
+	.stars {
 		position: absolute;
-		inset: 0;
-		width: 100%;
-		height: 100%;
-		opacity: 0.15;
+		right: max(0px, calc((100% - var(--page-width)) / 2));
+		bottom: 0;
+		width: min(400px, 78%);
+		height: auto;
+		color: var(--color-flag-yellow);
+		opacity: 0.2;
 		pointer-events: none;
-	}
-
-	.pitch :global(*) {
-		vector-effect: non-scaling-stroke;
 	}
 
 	.inner {
@@ -122,7 +111,7 @@
 
 	.subtitle {
 		margin-top: 10px;
-		color: var(--color-on-turf-muted);
+		color: var(--color-on-brand-muted);
 		font-weight: 500;
 	}
 

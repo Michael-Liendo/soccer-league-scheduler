@@ -4,17 +4,18 @@
  */
 
 :root {
-	--color-bg: #eff3e9;
+	--color-bg: #f7f2ee;
 	--color-surface: #ffffff;
-	--color-surface-alt: #e2e9da;
-	--color-border: #cad6c2;
-	--color-text: #0f2619;
-	--color-text-muted: #52675a;
+	--color-surface-alt: #f0e6e1;
+	--color-border: #e2d3cc;
+	--color-text: #2b0f18;
+	--color-text-muted: #7b5f67;
 
-	--color-turf: #11472a;
-	--color-turf-stripe: rgb(255 255 255 / 0.035);
-	--color-on-turf: #f1f6ec;
-	--color-on-turf-muted: rgb(241 246 236 / 0.76);
+	/* Vinotinto, the colour Venezuela plays in. */
+	--color-brand: #6f1030;
+	--color-brand-deep: #4a0a20;
+	--color-on-brand: #fff5ec;
+	--color-on-brand-muted: rgb(255 245 236 / 0.78);
 
 	/* Yellow, blue and red of the Venezuelan flag. */
 	--color-flag-yellow: #ffcc00;
@@ -22,11 +23,11 @@
 	--color-flag-red: #cf142b;
 
 	--color-accent: var(--color-flag-yellow);
-	--color-on-accent: #1b1600;
-	--color-accent-text: #7d6200;
+	--color-on-accent: #241a00;
+	--color-accent-text: #8a6400;
 
-	--color-win: #1c8247;
-	--color-draw: #b17f10;
+	--color-win: #1b7f45;
+	--color-draw: #a9780c;
 	--color-loss: #c2182c;
 	--color-live: var(--color-flag-red);
 	--color-yellow-card: #f2c200;
@@ -49,21 +50,22 @@
 
 @media (prefers-color-scheme: dark) {
 	:root {
-		--color-bg: #0b1f15;
-		--color-surface: #112e1e;
-		--color-surface-alt: #193c29;
-		--color-border: #28533c;
-		--color-text: #edf2e9;
-		--color-text-muted: #99b5a4;
+		--color-bg: #180b10;
+		--color-surface: #26121a;
+		--color-surface-alt: #361b26;
+		--color-border: #4e2b39;
+		--color-text: #f8ece7;
+		--color-text-muted: #c7a9b1;
 
-		--color-turf: #0e3922;
+		--color-brand: #5c0d27;
+		--color-brand-deep: #3a0818;
 		--color-accent-text: #ffd84d;
 
-		--color-win: #45bb73;
-		--color-draw: #d8a82e;
-		--color-loss: #f2616f;
+		--color-win: #4cc07a;
+		--color-draw: #dcad33;
+		--color-loss: #ff7381;
 
-		--color-board: #10318f;
+		--color-board: #12349a;
 
 		color-scheme: dark;
 	}
@@ -213,13 +215,13 @@ svg {
 	color: #fff;
 }
 
-.btn-on-turf {
+.btn-on-brand {
 	background: rgb(255 255 255 / 0.1);
 	border-color: rgb(255 255 255 / 0.28);
-	color: var(--color-on-turf);
+	color: var(--color-on-brand);
 }
 
-.btn-on-turf:hover {
+.btn-on-brand:hover {
 	border-color: rgb(255 255 255 / 0.6);
 }
 

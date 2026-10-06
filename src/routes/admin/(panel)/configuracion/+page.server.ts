@@ -12,12 +12,7 @@ export const actions: Actions = {
 				name: text(form, 'name'),
 				location: text(form, 'location'),
 				venue: text(form, 'venue'),
-				playersOnField: integer(form, 'playersOnField'),
-				points: {
-					win: integer(form, 'pointsWin'),
-					draw: integer(form, 'pointsDraw'),
-					loss: integer(form, 'pointsLoss')
-				}
+				playersOnField: integer(form, 'playersOnField')
 			});
 			return { message: 'Configuración guardada' };
 		});

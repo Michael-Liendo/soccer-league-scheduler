@@ -85,48 +85,10 @@
 						jugadores.
 					</span>
 				</label>
-				<fieldset class="points">
-					<legend class="field-label">Puntos por partido</legend>
-					<label class="field">
-						<span class="help">Victoria</span>
-						<input
-							class="input"
-							type="number"
-							name="pointsWin"
-							value={tournament.pointsWin}
-							min="0"
-							max="10"
-							required
-						/>
-					</label>
-					<label class="field">
-						<span class="help">Empate</span>
-						<input
-							class="input"
-							type="number"
-							name="pointsDraw"
-							value={tournament.pointsDraw}
-							min="0"
-							max="10"
-							required
-						/>
-					</label>
-					<label class="field">
-						<span class="help">Derrota</span>
-						<input
-							class="input"
-							type="number"
-							name="pointsLoss"
-							value={tournament.pointsLoss}
-							min="0"
-							max="10"
-							required
-						/>
-					</label>
-				</fieldset>
 				<p class="help">
-					La tabla ordena por puntos; si hay empate decide la diferencia de goles, luego los goles a
-					favor y después el juego limpio (amarilla 1, roja 3).
+					Puntos: victoria {tournament.pointsWin}, empate {tournament.pointsDraw}, derrota
+					{tournament.pointsLoss}. La tabla ordena por puntos; si hay empate decide la diferencia de
+					goles, luego los goles a favor y después el juego limpio (amarilla 1, roja 3).
 				</p>
 				<div class="btn-row">
 					<button class="btn btn-primary">Guardar</button>
@@ -213,19 +175,5 @@
 
 	.short {
 		max-width: 120px;
-	}
-
-	.points {
-		display: grid;
-		grid-template-columns: repeat(3, minmax(0, 110px));
-		gap: 10px;
-		margin: 0;
-		padding: 0;
-		border: 0;
-	}
-
-	.points legend {
-		margin-bottom: 6px;
-		padding: 0;
 	}
 </style>

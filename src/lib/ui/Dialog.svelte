@@ -86,7 +86,7 @@
 	}
 
 	dialog::backdrop {
-		background: rgb(4 14 9 / 0.62);
+		background: rgb(20 6 11 / 0.66);
 	}
 
 	.head {

@@ -27,11 +27,11 @@
 	subtitle={leaguePhase(data.league, data.today)}
 >
 	{#snippet tools()}
-		<a class="btn btn-sm btn-on-turf" href={resolve('')} target="_blank" rel="noopener">
+		<a class="btn btn-sm btn-on-brand" href={resolve('')} target="_blank" rel="noopener">
 			<Icon name="external" /> Ver vista pública
 		</a>
 		<form method="POST" action={resolve('admin/logout')}>
-			<button class="btn btn-sm btn-on-turf"><Icon name="logout" /> Cerrar sesión</button>
+			<button class="btn btn-sm btn-on-brand"><Icon name="logout" /> Cerrar sesión</button>
 		</form>
 	{/snippet}
 </Masthead>

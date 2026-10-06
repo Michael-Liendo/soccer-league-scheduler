@@ -66,8 +66,6 @@ export interface SettingsInput {
 	location: string;
 	venue: string;
 	playersOnField: number;
-	/** Points for a win, a draw and a loss. Left out, they stay as they are. */
-	points?: { win: number; draw: number; loss: number };
 }
 
 export interface PlanDayInput {
@@ -484,13 +482,8 @@ export function createLeagueStore(db: Db, clock: Clock = systemClock) {
 					LIMITS.maxPlayersOnField
 				)
 			};
-			const points = input.points && {
-				pointsWin: requireIntegerInRange(input.points.win, 'Los puntos por victoria', 0, 10),
-				pointsDraw: requireIntegerInRange(input.points.draw, 'Los puntos por empate', 0, 10),
-				pointsLoss: requireIntegerInRange(input.points.loss, 'Los puntos por derrota', 0, 10)
-			};
 			db.update(tournament)
-				.set({ ...values, ...points, updatedAt: clock.now() })
+				.set({ ...values, updatedAt: clock.now() })
 				.where(eq(tournament.id, TOURNAMENT_ID))
 				.run();
 		},

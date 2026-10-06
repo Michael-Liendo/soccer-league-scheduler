@@ -75,3 +75,7 @@ The image expects to run behind a reverse proxy that sets `X-Forwarded-Proto`,
 public address of the site and reject form posts coming from anywhere else. To run the image
 without a proxy, clear `PROTOCOL_HEADER`, `HOST_HEADER` and `ADDRESS_HEADER` and serve it over
 HTTPS.
+
+## License
+
+[MIT](LICENSE)

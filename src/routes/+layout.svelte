@@ -7,6 +7,7 @@
 	import '@fontsource/barlow-condensed/latin-700.css';
 	import '@fontsource/barlow-condensed/latin-800.css';
 	import '../app.css';
+	import { asset } from '$app/paths';
 	import favicon from '#lib/assets/favicon.svg';
 	import Toaster from '#lib/ui/Toaster.svelte';
 	import type { LayoutProps } from './$types';
@@ -16,6 +17,7 @@
 
 <svelte:head>
 	<link rel="icon" href={favicon} />
+	<link rel="apple-touch-icon" href={asset('apple-touch-icon.png')} />
 </svelte:head>
 
 {@render children()}

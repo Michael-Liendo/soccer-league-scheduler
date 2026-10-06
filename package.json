@@ -1,6 +1,7 @@
 {
 	"name": "soccer-league-scheduler",
 	"description": "Plan and share the calendar of a local soccer cup.",
+	"license": "MIT",
 	"private": true,
 	"version": "0.0.1",
 	"type": "module",

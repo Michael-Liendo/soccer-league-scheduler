@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { refreshAll } from '$app/navigation';
 	import { resolve } from '$app/paths';
+	import { page } from '$app/state';
 	import { leagueKicker, leaguePhase } from '#lib/league/view.ts';
 	import Masthead from '#lib/ui/Masthead.svelte';
 	import TabNav, { type TabItem } from '#lib/ui/TabNav.svelte';
@@ -56,6 +57,10 @@
 	<meta property="og:site_name" content={data.league.tournament.name} />
 	<meta property="og:title" content={data.league.tournament.name} />
 	<meta property="og:description" content={description} />
+	<meta property="og:image" content="{page.url.origin}/og.png" />
+	<meta property="og:image:width" content="1200" />
+	<meta property="og:image:height" content="630" />
+	<meta name="twitter:card" content="summary_large_image" />
 </svelte:head>
 
 <Masthead
@@ -65,7 +70,7 @@
 >
 	{#snippet tools()}
 		{#if data.isAdmin}
-			<a class="btn btn-sm btn-on-turf" href={resolve('admin')}>Ir al panel</a>
+			<a class="btn btn-sm btn-on-brand" href={resolve('admin')}>Ir al panel</a>
 		{/if}
 	{/snippet}
 </Masthead>
