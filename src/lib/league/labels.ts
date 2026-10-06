@@ -19,14 +19,22 @@ export const LEG_LABELS: Record<number, string> = {
 	1: 'Una vuelta',
 	2: 'Dos vueltas',
 	3: 'Tres vueltas',
-	4: 'Cuatro vueltas'
+	4: 'Cuatro vueltas',
+	5: 'Cinco vueltas',
+	6: 'Seis vueltas',
+	7: 'Siete vueltas',
+	8: 'Ocho vueltas'
 };
 
 export const LEG_DESCRIPTIONS: Record<number, string> = {
 	1: 'Cada equipo enfrenta una vez a cada rival.',
 	2: 'Ida y vuelta: dos partidos contra cada rival.',
 	3: 'Tres partidos contra cada rival.',
-	4: 'Ida y vuelta doble: cuatro partidos contra cada rival.'
+	4: 'Ida y vuelta doble: cuatro partidos contra cada rival.',
+	5: 'Cinco partidos contra cada rival.',
+	6: 'Seis partidos contra cada rival.',
+	7: 'Siete partidos contra cada rival.',
+	8: 'Ocho partidos contra cada rival.'
 };
 
 /** Colours offered to new teams, in the order they are handed out. */

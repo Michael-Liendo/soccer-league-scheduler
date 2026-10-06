@@ -6,6 +6,7 @@
  */
 import { addMinutes, toMinutes } from './format.ts';
 import { shuffled, type Rng } from './random.ts';
+import { LIMITS } from './types.ts';
 
 export type { Rng };
 
@@ -52,7 +53,17 @@ export interface PlanOption {
 	recommended: boolean;
 }
 
-export const LEG_OPTIONS = [1, 2, 3, 4] as const;
+/** Formats on offer, from a single leg up to the most a league can have. */
+export const LEG_OPTIONS: readonly number[] = Array.from(
+	{ length: LIMITS.maxLegs },
+	(_, index) => index + 1
+);
+
+/**
+ * Formats with more legs than this suit small leagues with short matches. They are only worth
+ * offering when the days have room for them.
+ */
+export const USUAL_MAX_LEGS = 4;
 
 /** Teams should ideally play between two and three matches per match day. */
 const IDEAL_GAMES_PER_DAY = { min: 2, max: 3 };
@@ -203,8 +214,9 @@ export function suggestMatchesPerDay(
 }
 
 /**
- * Describes each format (one to four legs) for the given teams and days, and flags the one that
- * gives every team a good amount of play per day while fitting in the time window.
+ * Describes each format, from one leg up to the most a league can have, for the given teams and
+ * days, and flags the one that gives every team a good amount of play per day while fitting in
+ * the time window.
  */
 export function planOptions(teamCount: number, dayCount: number, timing: PlanTiming): PlanOption[] {
 	if (teamCount < 2 || dayCount < 1) return [];

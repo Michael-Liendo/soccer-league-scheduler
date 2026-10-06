@@ -19,6 +19,7 @@
 		planOptions,
 		suggestMatchesPerDay,
 		totalMatches,
+		USUAL_MAX_LEGS,
 		type PlanTiming
 	} from '#lib/league/schedule.ts';
 	import { LIMITS, type League } from '#lib/league/types.ts';
@@ -99,6 +100,10 @@
 	);
 	const capacity = $derived(timingIsValid ? dayCapacity(timing) : 0);
 	const options = $derived(timingIsValid ? planOptions(teamCount, rows.length, timing) : []);
+	// Longer formats stay out of the way unless the days have room for them or one is in use.
+	const offeredOptions = $derived(
+		options.filter((option) => option.legs <= USUAL_MAX_LEGS || option.fits || option.legs === legs)
+	);
 	const expectedTotal = $derived(totalMatches(teamCount, legs));
 	const plannedTotal = $derived(rows.reduce((sum, row) => sum + (row.matches ?? 0), 0));
 	const difference = $derived(expectedTotal - plannedTotal);
@@ -281,7 +286,7 @@
 			<div class="empty">Añade al menos 2 equipos para ver los formatos posibles.</div>
 		{:else}
 			<div class="options">
-				{#each options as option (option.legs)}
+				{#each offeredOptions as option (option.legs)}
 					<label class="option" class:selected={legs === option.legs}>
 						<input
 							class="visually-hidden"

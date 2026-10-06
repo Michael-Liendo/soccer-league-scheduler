@@ -112,7 +112,7 @@ export const LIMITS = {
 	maxPlayersOnField: 11,
 	maxTeams: 24,
 	maxMatchDays: 12,
-	maxLegs: 4,
+	maxLegs: 8,
 	minMatchMinutes: 5,
 	maxMatchMinutes: 120,
 	maxBreakMinutes: 60,

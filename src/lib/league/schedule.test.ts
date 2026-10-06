@@ -163,10 +163,23 @@ describe('timing', () => {
 });
 
 describe('planOptions', () => {
-	it('offers one to four legs', () => {
+	it('describes one to eight legs', () => {
 		const options = planOptions(6, 4, timing);
-		expect(options.map((option) => option.legs)).toEqual([1, 2, 3, 4]);
+		expect(options.map((option) => option.legs)).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
 		expect(options.filter((option) => option.recommended)).toHaveLength(1);
+	});
+
+	it('has room for eight legs when four teams play short matches back to back', () => {
+		const evening = { startTime: '19:30', endTime: '21:30', matchMinutes: 10, breakMinutes: 0 };
+		const options = planOptions(4, 4, evening);
+		expect(options.find((option) => option.legs === 8)).toMatchObject({
+			totalMatches: 48,
+			matchesPerDay: [12, 12, 12, 12],
+			gamesPerTeamPerDay: 6,
+			longestDayMinutes: 120,
+			fits: true
+		});
+		expect(options.find((option) => option.recommended)).toMatchObject({ legs: 4 });
 	});
 
 	it('recommends two legs for six teams over four days', () => {

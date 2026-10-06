@@ -18,7 +18,7 @@ three-a-side cup played over four Saturdays in Naiguatá, Venezuela, so the inte
 - **Helpers**: the owner signs in with `ADMIN_CODE` and can create extra codes for people who
   help on match day. A helper can load teams and run matches, but cannot delete teams, players or
   results, rebuild the calendar or change settings. Revoking a code locks its sessions out at once.
-- **Planner**: given the teams, the match days and the daily timetable, it compares one to four
+- **Planner**: given the teams, the match days and the daily timetable, it compares one to eight
   round-robin legs, recommends the format that gives every team two to three matches per day
   without running past the end time, and spreads the matches so teams rest between games.
 
