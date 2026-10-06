@@ -2,19 +2,31 @@
 	import type { Snippet } from 'svelte';
 	import { capitalize, formatDate, formatTime, plural } from '#lib/league/format.ts';
 	import type { League, Match } from '#lib/league/types.ts';
-	import { kickoffRange, scheduleByDay, teamsById, venueOf } from '#lib/league/view.ts';
+	import {
+		kickoffRange,
+		nowAndNext,
+		orderOfPlay,
+		scheduleByDay,
+		teamsById,
+		venueOf
+	} from '#lib/league/view.ts';
 	import MatchCard from './MatchCard.svelte';
 
 	interface Props {
 		league: League;
 		today: string;
+		/** Current time in epoch milliseconds, ticking, for the clocks of matches in play. */
+		now?: number;
 		/** Extra buttons shown under each match. */
 		actions?: Snippet<[Match]>;
 		/** Which matches get the extra buttons. All of them unless told otherwise. */
 		hasActions?: (match: Match) => boolean;
 	}
 
-	let { league, today, actions, hasActions = () => true }: Props = $props();
+	let { league, today, now, actions, hasActions = () => true }: Props = $props();
+
+	const order = $derived(orderOfPlay(league));
+	const next = $derived(nowAndNext(league).next);
 
 	/** On a match day the list opens on that day's matches; otherwise it shows them all. */
 	function initialDayFilter(): string {
@@ -89,6 +101,9 @@
 					home={teams.get(match.homeTeamId)}
 					away={teams.get(match.awayTeamId)}
 					venue={venueOf(match, league)}
+					order={order.get(match.id)}
+					isNext={match.id === next?.id}
+					{now}
 					actions={actions && hasActions(match) ? matchActions : undefined}
 				/>
 				{#snippet matchActions()}

@@ -70,6 +70,8 @@ function match(
 		status,
 		homeScore: score?.[0] ?? 0,
 		awayScore: score?.[1] ?? 0,
+		clockStartedAt: null,
+		clockElapsedMs: 0,
 		events
 	};
 }
@@ -173,6 +175,19 @@ describe('player statistics', () => {
 		});
 	});
 
+	it('credits own goals and goals without a named scorer to nobody', () => {
+		const withOwnGoal = computePlayerStats(teams, [
+			match(
+				1,
+				2,
+				[3, 0],
+				[event(1, 11, 'goal'), event(1, null, 'own_goal'), event(1, null, 'goal')]
+			)
+		]);
+		expect(withOwnGoal).toHaveLength(1);
+		expect(withOwnGoal[0]).toMatchObject({ playerId: 11, goals: 1 });
+	});
+
 	it('ranks scorers by goals', () => {
 		expect(topScorers(stats).map((stat) => [stat.name, stat.goals])).toEqual([
 			['Luis', 3],
@@ -198,6 +213,13 @@ describe('team statistics', () => {
 			{ teamId: 1, yellows: 1, reds: 0, points: 1 },
 			{ teamId: 2, yellows: 1, reds: 1, points: 4 }
 		]);
+	});
+
+	it('does not count goals of any kind against fair play', () => {
+		const table = fairPlayTable(teams, [
+			match(1, 2, [2, 0], [event(1, 11, 'goal'), event(1, null, 'own_goal')])
+		]);
+		expect(table.every((row) => row.points === 0)).toBe(true);
 	});
 
 	it('orders defences by goals conceded per match', () => {

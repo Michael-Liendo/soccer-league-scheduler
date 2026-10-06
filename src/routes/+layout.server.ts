@@ -7,6 +7,8 @@ export const load: LayoutServerLoad = ({ locals }) => {
 		league: league().getLeague(),
 		/** Today's date where the league is played, so server and browser agree on it. */
 		today: todayIso(),
+		/** The server's clock, so match timers do not depend on each phone's own. */
+		now: Date.now(),
 		isAdmin: locals.isAdmin
 	};
 };

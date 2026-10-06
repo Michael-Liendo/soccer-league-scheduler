@@ -167,6 +167,27 @@
 	</section>
 {/if}
 
+{#if scorers.length > 0}
+	<section class="panel scorers">
+		<div class="panel-head">
+			<h2 class="panel-title">Goleadores</h2>
+			<a class="btn btn-sm" href={resolve('estadisticas')}>Ver todos</a>
+		</div>
+		<ol>
+			{#each scorers.slice(0, 5) as scorer, index (scorer.key)}
+				<li>
+					<span class="rank">{index + 1}</span>
+					<span class="who">
+						<strong>{scorer.name}</strong>
+						<span class="muted">{teams.get(scorer.teamId)?.name}</span>
+					</span>
+					<span class="points">{scorer.goals}</span>
+				</li>
+			{/each}
+		</ol>
+	</section>
+{/if}
+
 <ShareDialog bind:open={sharing} title="Compartir tabla" text={shareText} />
 
 <style>
@@ -287,6 +308,43 @@
 
 	.legend {
 		margin-top: 12px;
+	}
+
+	.scorers {
+		margin-top: 16px;
+	}
+
+	.scorers ol {
+		margin: 0;
+		padding: 0;
+		list-style: none;
+	}
+
+	.scorers li {
+		display: grid;
+		grid-template-columns: 30px 1fr auto;
+		align-items: center;
+		gap: 8px;
+		padding: 8px 0;
+		border-bottom: 1px solid var(--color-border);
+	}
+
+	.scorers li:last-child {
+		border-bottom: 0;
+	}
+
+	.rank {
+		color: var(--color-text-muted);
+		font-family: var(--font-display);
+		font-weight: 700;
+		font-size: 1.1rem;
+	}
+
+	.who {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 2px 10px;
+		min-width: 0;
 	}
 
 	.champion {

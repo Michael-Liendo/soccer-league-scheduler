@@ -75,6 +75,10 @@ export const matches = sqliteTable(
 		status: text('status').notNull().default('pending'),
 		homeScore: integer('home_score').notNull().default(0),
 		awayScore: integer('away_score').notNull().default(0),
+		/** Epoch milliseconds since which the match clock is running, or null while it is stopped. */
+		clockStartedAt: integer('clock_started_at'),
+		/** Playing time, in milliseconds, accumulated before the clock was last started. */
+		clockElapsedMs: integer('clock_elapsed_ms').notNull().default(0),
 		updatedAt: integer('updated_at').notNull()
 	},
 	(table) => [index('matches_day_idx').on(table.matchDayId)]

@@ -5,11 +5,13 @@
 	import { eventsByPlayer, teamsById, venueOf } from '#lib/league/view.ts';
 	import MatchList from '#lib/ui/MatchList.svelte';
 	import ShareDialog from '#lib/ui/ShareDialog.svelte';
+	import { createTicker } from '#lib/ui/ticker.svelte.ts';
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
 
 	let sharedId = $state<number | null>(null);
+	const ticker = createTicker(() => data.now);
 
 	const league = $derived(data.league);
 	const teams = $derived(teamsById(league.teams));
@@ -56,7 +58,12 @@
 		Todavía no hay calendario. Vuelve pronto: aquí aparecerán los partidos de cada jornada.
 	</div>
 {:else}
-	<MatchList {league} today={data.today} hasActions={(match) => match.status !== 'pending'}>
+	<MatchList
+		{league}
+		today={data.today}
+		now={ticker.now}
+		hasActions={(match) => match.status !== 'pending'}
+	>
 		{#snippet actions(match: Match)}
 			<button type="button" class="btn btn-sm btn-quiet" onclick={() => (sharedId = match.id)}>
 				Compartir resultado

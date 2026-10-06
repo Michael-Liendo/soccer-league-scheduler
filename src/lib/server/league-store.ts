@@ -1,4 +1,4 @@
-import { and, asc, count, eq, max } from 'drizzle-orm';
+import { asc, count, eq, max } from 'drizzle-orm';
 import {
 	formatDate,
 	isClockTime,
@@ -7,8 +7,11 @@ import {
 	todayIso,
 	toMinutes
 } from '#lib/league/format.ts';
+import { elapsedMs, MAX_CLOCK_MS, minuteOfPlay } from '#lib/league/clock.ts';
+import { nextTeamColor } from '#lib/league/labels.ts';
 import { buildSchedule, slotTime, totalMatches, type PlanTiming } from '#lib/league/schedule.ts';
 import {
+	countsAsGoal,
 	LIMITS,
 	MATCH_EVENT_TYPES,
 	MATCH_STATUSES,
@@ -17,7 +20,6 @@ import {
 	type Match,
 	type MatchEvent,
 	type MatchEventType,
-	type MatchSide,
 	type MatchStatus,
 	type Player,
 	type Position,
@@ -64,6 +66,8 @@ export interface SettingsInput {
 	location: string;
 	venue: string;
 	playersOnField: number;
+	/** Points for a win, a draw and a loss. Left out, they stay as they are. */
+	points?: { win: number; draw: number; loss: number };
 }
 
 export interface PlanDayInput {
@@ -95,9 +99,19 @@ export interface MatchScheduleInput {
 
 export interface MatchEventInput {
 	teamId: number;
-	playerId: number;
+	/** Null when nobody is named: an own goal, or a goal whose scorer is unknown. */
+	playerId: number | null;
 	type: MatchEventType;
+	/** Minute of play. Left out, it is taken from the match clock. */
+	minute?: number | null;
 }
+
+export interface TeamWithPlayersInput {
+	name: string;
+	players: PlayerInput[];
+}
+
+export type MoveDirection = 'earlier' | 'later';
 
 const MAX_SCORE = 99;
 
@@ -275,6 +289,16 @@ export function createLeagueStore(db: Db, clock: Clock = systemClock) {
 		return match;
 	}
 
+	/** The clock columns for a match whose clock stops now, keeping the time played so far. */
+	function stoppedClock(match: { clockStartedAt: number | null; clockElapsedMs: number }) {
+		return { clockStartedAt: null, clockElapsedMs: elapsedMs(match, clock.now()) };
+	}
+
+	function validateMinute(minute: number | null): number | null {
+		if (minute === null) return null;
+		return requireIntegerInRange(minute, 'El minuto', 1, LIMITS.maxClockMinutes);
+	}
+
 	/** Renumbers the matches of a day by kick-off time and gives each slot its time. */
 	function retimeDay(executor: Executor, matchDayId: number, timing: PlanTiming): void {
 		const dayMatches = executor
@@ -428,6 +452,8 @@ export function createLeagueStore(db: Db, clock: Clock = systemClock) {
 					status: (isOneOf(MATCH_STATUSES, row.status) ? row.status : 'pending') as MatchStatus,
 					homeScore: row.homeScore,
 					awayScore: row.awayScore,
+					clockStartedAt: row.clockStartedAt,
+					clockElapsedMs: row.clockElapsedMs,
 					events: eventsByMatch.get(row.id) ?? []
 				}))
 				.sort(
@@ -458,8 +484,13 @@ export function createLeagueStore(db: Db, clock: Clock = systemClock) {
 					LIMITS.maxPlayersOnField
 				)
 			};
+			const points = input.points && {
+				pointsWin: requireIntegerInRange(input.points.win, 'Los puntos por victoria', 0, 10),
+				pointsDraw: requireIntegerInRange(input.points.draw, 'Los puntos por empate', 0, 10),
+				pointsLoss: requireIntegerInRange(input.points.loss, 'Los puntos por derrota', 0, 10)
+			};
 			db.update(tournament)
-				.set({ ...values, updatedAt: clock.now() })
+				.set({ ...values, ...points, updatedAt: clock.now() })
 				.where(eq(tournament.id, TOURNAMENT_ID))
 				.run();
 		},
@@ -479,6 +510,50 @@ export function createLeagueStore(db: Db, clock: Clock = systemClock) {
 					.get();
 				touch(tx);
 				return created.id;
+			});
+		},
+
+		/**
+		 * Creates several teams at once, each with its players, giving every team the next free
+		 * colour. Names that are already taken are skipped and reported back.
+		 */
+		createTeams(inputs: TeamWithPlayersInput[]): { created: string[]; skipped: string[] } {
+			return db.transaction((tx) => {
+				const existing = tx.select({ name: teams.name, color: teams.color }).from(teams).all();
+				const taken = new Set(existing.map((team) => team.name.toLocaleLowerCase('es')));
+				const colors = existing.map((team) => team.color);
+				const created: string[] = [];
+				const skipped: string[] = [];
+
+				for (const input of inputs) {
+					const name = requireText(input.name, 'el nombre del equipo', LIMITS.teamName);
+					const key = name.toLocaleLowerCase('es');
+					if (taken.has(key)) {
+						skipped.push(name);
+						continue;
+					}
+					if (taken.size >= LIMITS.maxTeams) {
+						throw new LeagueError(`La liga admite hasta ${LIMITS.maxTeams} equipos.`);
+					}
+					const color = nextTeamColor(colors);
+					const now = clock.now();
+					const team = tx
+						.insert(teams)
+						.values({ name, color, createdAt: now })
+						.returning({ id: teams.id })
+						.get();
+					const roster = input.players.map(validatePlayer);
+					if (roster.length > 0) {
+						tx.insert(players)
+							.values(roster.map((player) => ({ ...player, teamId: team.id, createdAt: now })))
+							.run();
+					}
+					taken.add(key);
+					colors.push(color);
+					created.push(name);
+				}
+				if (created.length > 0) touch(tx);
+				return { created, skipped };
 			});
 		},
 
@@ -512,6 +587,21 @@ export function createLeagueStore(db: Db, clock: Clock = systemClock) {
 					.get();
 				touch(tx);
 				return created.id;
+			});
+		},
+
+		/** Adds several players to a team in one go. Returns how many were added. */
+		addPlayers(teamId: number, inputs: PlayerInput[]): number {
+			const roster = inputs.map(validatePlayer);
+			if (roster.length === 0) throw new LeagueError('Escribe al menos un jugador.');
+			return db.transaction((tx) => {
+				requireTeam(tx, teamId);
+				const now = clock.now();
+				tx.insert(players)
+					.values(roster.map((player) => ({ ...player, teamId, createdAt: now })))
+					.run();
+				touch(tx);
+				return roster.length;
 			});
 		},
 
@@ -659,41 +749,12 @@ export function createLeagueStore(db: Db, clock: Clock = systemClock) {
 		setMatchStatus(id: number, status: MatchStatus): void {
 			if (!isOneOf(MATCH_STATUSES, status)) throw new LeagueError('Ese estado no es válido.');
 			db.transaction((tx) => {
-				requireMatch(tx, id);
-				tx.update(matches).set({ status, updatedAt: clock.now() }).where(eq(matches.id, id)).run();
-				touch(tx);
-			});
-		},
-
-		/**
-		 * Adds or takes away one goal without saying who scored it. The score never drops below
-		 * the goals that do have a scorer; those are removed with {@link removeMatchEvent}.
-		 */
-		adjustScore(id: number, side: MatchSide, delta: 1 | -1): void {
-			db.transaction((tx) => {
 				const match = requireMatch(tx, id);
-				const teamId = side === 'home' ? match.homeTeamId : match.awayTeamId;
-				const credited =
-					tx
-						.select({ value: count() })
-						.from(matchEvents)
-						.where(
-							and(
-								eq(matchEvents.matchId, id),
-								eq(matchEvents.teamId, teamId),
-								eq(matchEvents.type, 'goal')
-							)
-						)
-						.get()?.value ?? 0;
-				const current = side === 'home' ? match.homeScore : match.awayScore;
-				const next = Math.min(MAX_SCORE, Math.max(credited, current + delta));
-				if (next === current) return;
-
 				tx.update(matches)
 					.set({
-						...(side === 'home' ? { homeScore: next } : { awayScore: next }),
-						// Touching the score of a match that had not started means it is under way.
-						status: match.status === 'pending' ? 'live' : match.status,
+						status,
+						// Only a match being played has a running clock.
+						...(status === 'live' ? {} : stoppedClock(match)),
 						updatedAt: clock.now()
 					})
 					.where(eq(matches.id, id))
@@ -702,20 +763,123 @@ export function createLeagueStore(db: Db, clock: Clock = systemClock) {
 			});
 		},
 
-		/** Records a goal or a card for a player. A goal also adds to the score. */
+		/** Kicks off or resumes a match: it becomes live and its clock runs. */
+		startMatch(id: number): void {
+			db.transaction((tx) => {
+				const match = requireMatch(tx, id);
+				const now = clock.now();
+				tx.update(matches)
+					.set({ status: 'live', clockStartedAt: match.clockStartedAt ?? now, updatedAt: now })
+					.where(eq(matches.id, id))
+					.run();
+				touch(tx);
+			});
+		},
+
+		/** Stops the clock, for half-time or a break, without ending the match. */
+		pauseMatch(id: number): void {
+			db.transaction((tx) => {
+				const match = requireMatch(tx, id);
+				tx.update(matches)
+					.set({ ...stoppedClock(match), updatedAt: clock.now() })
+					.where(eq(matches.id, id))
+					.run();
+				touch(tx);
+			});
+		},
+
+		/** Final whistle: the clock stops and the result counts for the table. */
+		finishMatch(id: number): void {
+			db.transaction((tx) => {
+				const match = requireMatch(tx, id);
+				tx.update(matches)
+					.set({ status: 'finished', ...stoppedClock(match), updatedAt: clock.now() })
+					.where(eq(matches.id, id))
+					.run();
+				touch(tx);
+			});
+		},
+
+		/** Sets the time played, to correct a clock that was started late or left running. */
+		setClock(id: number, playedMs: number): void {
+			if (!Number.isFinite(playedMs)) throw new LeagueError('Ese tiempo no es válido.');
+			db.transaction((tx) => {
+				const match = requireMatch(tx, id);
+				const now = clock.now();
+				tx.update(matches)
+					.set({
+						clockElapsedMs: Math.min(MAX_CLOCK_MS, Math.max(0, Math.round(playedMs))),
+						clockStartedAt: match.clockStartedAt === null ? null : now,
+						updatedAt: now
+					})
+					.where(eq(matches.id, id))
+					.run();
+				touch(tx);
+			});
+		},
+
+		/**
+		 * Swaps a match with the one played right before or after it on the same day. Each keeps
+		 * its teams and result; they trade places and kick-off times.
+		 */
+		moveMatch(id: number, direction: MoveDirection): void {
+			db.transaction((tx) => {
+				const match = requireMatch(tx, id);
+				const dayMatches = tx
+					.select({ id: matches.id, time: matches.time, slot: matches.slot })
+					.from(matches)
+					.where(eq(matches.matchDayId, match.matchDayId))
+					.all()
+					.sort(
+						(a, b) =>
+							(a.time ?? '99:99').localeCompare(b.time ?? '99:99') || a.slot - b.slot || a.id - b.id
+					);
+				const index = dayMatches.findIndex((candidate) => candidate.id === id);
+				const other = dayMatches[index + (direction === 'earlier' ? -1 : 1)];
+				if (!other) return;
+
+				const current = dayMatches[index];
+				const now = clock.now();
+				tx.update(matches)
+					.set({ slot: other.slot, time: other.time, updatedAt: now })
+					.where(eq(matches.id, current.id))
+					.run();
+				tx.update(matches)
+					.set({ slot: current.slot, time: current.time, updatedAt: now })
+					.where(eq(matches.id, other.id))
+					.run();
+				touch(tx);
+			});
+		},
+
+		/**
+		 * Records a goal or a card. Goals and cards belong to a player; the exceptions are own
+		 * goals and goals whose scorer nobody caught, which count for the team alone. The minute
+		 * comes from the match clock unless one is given.
+		 */
 		addMatchEvent(matchId: number, input: MatchEventInput): number {
 			if (!isOneOf(MATCH_EVENT_TYPES, input.type)) {
 				throw new LeagueError('Ese tipo de evento no es válido.');
 			}
+			const isGoal = countsAsGoal(input.type);
+			if (input.playerId === null && !isGoal) {
+				throw new LeagueError('Elige a quién se le mostró la tarjeta.');
+			}
+			const givenMinute = input.minute === undefined ? undefined : validateMinute(input.minute);
+
 			return db.transaction((tx) => {
 				const match = requireMatch(tx, matchId);
 				const isHome = input.teamId === match.homeTeamId;
 				if (!isHome && input.teamId !== match.awayTeamId) {
 					throw new LeagueError('Ese equipo no juega este partido.');
 				}
-				const player = tx.select().from(players).where(eq(players.id, input.playerId)).get();
-				if (!player || player.teamId !== input.teamId) {
-					throw new LeagueError('Elige un jugador de ese equipo.');
+				let player: { id: number; name: string } | null = null;
+				if (input.playerId !== null && input.type !== 'own_goal') {
+					const found = tx.select().from(players).where(eq(players.id, input.playerId)).get();
+					if (!found || found.teamId !== input.teamId) {
+						throw new LeagueError('Elige un jugador de ese equipo.');
+					}
+					player = found;
 				}
 
 				const now = clock.now();
@@ -724,20 +888,20 @@ export function createLeagueStore(db: Db, clock: Clock = systemClock) {
 					.values({
 						matchId,
 						teamId: input.teamId,
-						playerId: player.id,
-						playerName: player.name,
+						playerId: player?.id ?? null,
+						playerName: player?.name ?? '',
 						type: input.type,
+						minute: givenMinute === undefined ? minuteOfPlay(match, now) : givenMinute,
 						createdAt: now
 					})
 					.returning({ id: matchEvents.id })
 					.get();
 
-				const score =
-					input.type !== 'goal'
-						? {}
-						: isHome
-							? { homeScore: Math.min(MAX_SCORE, match.homeScore + 1) }
-							: { awayScore: Math.min(MAX_SCORE, match.awayScore + 1) };
+				const score = !isGoal
+					? {}
+					: isHome
+						? { homeScore: Math.min(MAX_SCORE, match.homeScore + 1) }
+						: { awayScore: Math.min(MAX_SCORE, match.awayScore + 1) };
 				tx.update(matches)
 					.set({
 						...score,
@@ -751,6 +915,21 @@ export function createLeagueStore(db: Db, clock: Clock = systemClock) {
 			});
 		},
 
+		/** Corrects the minute of a goal or a card, or clears it with null. */
+		setEventMinute(eventId: number, minute: number | null): void {
+			const value = validateMinute(minute);
+			db.transaction((tx) => {
+				const updated = tx
+					.update(matchEvents)
+					.set({ minute: value })
+					.where(eq(matchEvents.id, eventId))
+					.returning({ id: matchEvents.id })
+					.get();
+				if (!updated) throw new LeagueError('Ese evento ya no existe.');
+				touch(tx);
+			});
+		},
+
 		/** Deletes a goal or a card. Deleting a goal takes it off the score. */
 		removeMatchEvent(eventId: number): void {
 			db.transaction((tx) => {
@@ -758,7 +937,7 @@ export function createLeagueStore(db: Db, clock: Clock = systemClock) {
 				if (!event) return;
 				tx.delete(matchEvents).where(eq(matchEvents.id, eventId)).run();
 
-				if (event.type === 'goal') {
+				if (isOneOf(MATCH_EVENT_TYPES, event.type) && countsAsGoal(event.type)) {
 					const match = requireMatch(tx, event.matchId);
 					const score =
 						event.teamId === match.homeTeamId
@@ -779,7 +958,14 @@ export function createLeagueStore(db: Db, clock: Clock = systemClock) {
 				requireMatch(tx, id);
 				tx.delete(matchEvents).where(eq(matchEvents.matchId, id)).run();
 				tx.update(matches)
-					.set({ status: 'pending', homeScore: 0, awayScore: 0, updatedAt: clock.now() })
+					.set({
+						status: 'pending',
+						homeScore: 0,
+						awayScore: 0,
+						clockStartedAt: null,
+						clockElapsedMs: 0,
+						updatedAt: clock.now()
+					})
 					.where(eq(matches.id, id))
 					.run();
 				touch(tx);

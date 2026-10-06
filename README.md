@@ -10,6 +10,11 @@ three-a-side cup played over four Saturdays in Naiguatá, Venezuela, so the inte
 - **Admin panel** (`/admin`): protected by a private code. Create teams and players, plan and
   generate the calendar, record scores, goals and cards as they happen, move individual matches,
   and edit the cup settings.
+- **Match day**: every match has a clock. Start it, tap "Gol" and pick the scorer, show cards, and
+  the minute is stamped by itself. The order of play can be rearranged, and the public pages show
+  what is on now and what comes next.
+- **Teams in seconds**: paste the teams (and their players) as text, or paste the list of people
+  and let the app draw balanced teams, keeping the strongest players apart.
 - **Planner**: given the teams, the match days and the daily timetable, it compares one to four
   round-robin legs, recommends the format that gives every team two to three matches per day
   without running past the end time, and spreads the matches so teams rest between games.

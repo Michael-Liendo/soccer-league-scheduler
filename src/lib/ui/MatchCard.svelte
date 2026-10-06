@@ -1,9 +1,10 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
+	import { hasClockStarted, minuteOfPlay } from '#lib/league/clock.ts';
 	import { formatTime } from '#lib/league/format.ts';
 	import { STATUS_LABELS } from '#lib/league/labels.ts';
 	import type { Match, Team } from '#lib/league/types.ts';
-	import { eventsByPlayer, type PlayerEvents } from '#lib/league/view.ts';
+	import { eventsByPlayer, goalsLabel, type PlayerEvents } from '#lib/league/view.ts';
 	import Icon from './Icon.svelte';
 
 	interface Props {
@@ -11,10 +12,22 @@
 		home: Team | undefined;
 		away: Team | undefined;
 		venue: string;
+		/** Position of the match in its day: 1 for the first one played. */
+		order?: number;
+		/** Whether this is the next match to kick off. */
+		isNext?: boolean;
+		/** Current time in epoch milliseconds, to show the minute of a match in play. */
+		now?: number;
 		actions?: Snippet;
 	}
 
-	let { match, home, away, venue, actions }: Props = $props();
+	let { match, home, away, venue, order, isNext = false, now, actions }: Props = $props();
+
+	const liveMinute = $derived(
+		match.status === 'live' && now !== undefined && hasClockStarted(match)
+			? minuteOfPlay(match, now)
+			: null
+	);
 
 	const isPending = $derived(match.status === 'pending');
 
@@ -24,9 +37,10 @@
 	const awayEvents = $derived(eventsByPlayer(match, away));
 </script>
 
-<article class="match" class:live={match.status === 'live'}>
+<article class="match" class:live={match.status === 'live'} class:next={isNext}>
 	<div class="meta">
 		<div class="when">
+			{#if order}<span class="order">Partido {order}</span>{/if}
 			<span class="time">{match.time ? formatTime(match.time) : 'Sin hora'}</span>
 			{#if venue}<span>{venue}</span>{/if}
 		</div>
@@ -34,8 +48,11 @@
 			class="badge"
 			class:badge-live={match.status === 'live'}
 			class:badge-outline={match.status === 'finished'}
+			class:badge-accent={isNext && isPending}
 		>
-			{STATUS_LABELS[match.status]}
+			{isNext && isPending ? 'Sigue' : STATUS_LABELS[match.status]}{liveMinute
+				? ` · ${liveMinute}'`
+				: ''}
 		</span>
 	</div>
 
@@ -78,7 +95,7 @@
 		{#if player.goals > 0}
 			<span class="visually-hidden">Gol:</span><Icon name="ball" size={14} />
 		{/if}
-		<span>{player.name}{player.goals > 1 ? ` ×${player.goals}` : ''}</span>
+		<span>{player.name} {goalsLabel(player)}</span>
 		{#each times(player.yellows) as index (index)}
 			<span class="card yellow" title="Amarilla"></span>
 		{/each}
@@ -98,6 +115,17 @@
 		border: 1px solid var(--color-border);
 		border-radius: var(--radius-l);
 		background: var(--color-surface);
+	}
+
+	.match.next {
+		border-color: var(--color-accent);
+	}
+
+	.order {
+		font-family: var(--font-display);
+		font-weight: 700;
+		font-size: 1rem;
+		color: var(--color-text);
 	}
 
 	.match.live {

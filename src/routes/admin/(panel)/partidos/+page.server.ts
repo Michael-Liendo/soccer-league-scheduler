@@ -17,7 +17,8 @@ const STATUS_MESSAGES: Record<MatchStatus, string> = {
 };
 
 const EVENT_MESSAGES: Record<MatchEventType, (player: string) => string> = {
-	goal: (player) => `Gol de ${player}`,
+	goal: (player) => (player ? `Gol de ${player}` : 'Gol anotado'),
+	own_goal: () => 'Autogol anotado',
 	yellow: (player) => `Amarilla para ${player}`,
 	red: (player) => `Roja para ${player}`
 };
@@ -41,6 +42,16 @@ export const actions: Actions = {
 		});
 	},
 
+	move: async ({ request, locals }) => {
+		requireAdmin(locals);
+		const form = await request.formData();
+		return attempt(() => {
+			const direction = oneOf(['earlier', 'later'] as const, text(form, 'direction'), 'Orden');
+			league().moveMatch(integer(form, 'matchId'), direction);
+			return {};
+		});
+	},
+
 	status: async ({ request, locals }) => {
 		requireAdmin(locals);
 		const form = await request.formData();
@@ -51,29 +62,69 @@ export const actions: Actions = {
 		});
 	},
 
-	score: async ({ request, locals }) => {
+	/** The clock buttons: start or resume, pause, and the final whistle. */
+	clock: async ({ request, locals }) => {
 		requireAdmin(locals);
 		const form = await request.formData();
 		return attempt(() => {
-			const side = oneOf(['home', 'away'] as const, text(form, 'side'), 'Equipo');
-			league().adjustScore(integer(form, 'matchId'), side, integer(form, 'delta') < 0 ? -1 : 1);
-			return {};
+			const matchId = integer(form, 'matchId');
+			const step = oneOf(['start', 'pause', 'finish'] as const, text(form, 'step'), 'Acción');
+			if (step === 'start') league().startMatch(matchId);
+			else if (step === 'pause') league().pauseMatch(matchId);
+			else league().finishMatch(matchId);
+			const messages = {
+				start: 'Reloj en marcha',
+				pause: 'Reloj en pausa',
+				finish: 'Partido finalizado'
+			};
+			return { message: messages[step] };
 		});
 	},
 
+	setClock: async ({ request, locals }) => {
+		requireAdmin(locals);
+		const form = await request.formData();
+		return attempt(() => {
+			const minutes = integer(form, 'minutes');
+			if (!Number.isInteger(minutes) || minutes < 0)
+				throw new LeagueError('Escribe los minutos jugados.');
+			league().setClock(integer(form, 'matchId'), minutes * 60_000);
+			return { message: `Reloj puesto en el minuto ${minutes}` };
+		});
+	},
+
+	/**
+	 * Records a goal or a card. `playerId` names the player; `newPlayer` adds someone to the
+	 * roster on the spot; with neither, a goal is recorded without a scorer.
+	 */
 	addEvent: async ({ request, locals }) => {
 		requireAdmin(locals);
 		const form = await request.formData();
 		return attempt(() => {
 			const type = oneOf(MATCH_EVENT_TYPES, text(form, 'type'), 'Evento');
 			const teamId = integer(form, 'teamId');
-			const playerId = integer(form, 'playerId');
 			const store = league();
+
+			const newPlayer = text(form, 'newPlayer').trim();
+			let playerId: number | null = text(form, 'playerId') ? integer(form, 'playerId') : null;
+			if (newPlayer && type !== 'own_goal') {
+				playerId = store.addPlayer(teamId, { name: newPlayer, number: null, position: null });
+			}
 			store.addMatchEvent(integer(form, 'matchId'), { teamId, playerId, type });
 
 			const team = store.getLeague().teams.find((candidate) => candidate.id === teamId);
 			const player = team?.players.find((candidate) => candidate.id === playerId);
-			return { message: EVENT_MESSAGES[type](player?.name ?? 'jugador') };
+			return { message: EVENT_MESSAGES[type](player?.name ?? '') };
+		});
+	},
+
+	setMinute: async ({ request, locals }) => {
+		requireAdmin(locals);
+		const form = await request.formData();
+		return attempt(() => {
+			const minute = text(form, 'minute').trim();
+			league().setEventMinute(integer(form, 'eventId'), minute ? integer(form, 'minute') : null);
+			return {};
 		});
 	},
 
@@ -82,7 +133,7 @@ export const actions: Actions = {
 		const form = await request.formData();
 		return attempt(() => {
 			league().removeMatchEvent(integer(form, 'eventId'));
-			return { message: 'Evento borrado' };
+			return { message: 'Borrado' };
 		});
 	},
 

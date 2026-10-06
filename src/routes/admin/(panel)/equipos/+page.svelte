@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import { resolve } from '$app/paths';
+	import TeamDraw from '#lib/admin/TeamDraw.svelte';
 	import TeamEditor from '#lib/admin/TeamEditor.svelte';
 	import { plural } from '#lib/league/format.ts';
-	import { nextTeamColor } from '#lib/league/labels.ts';
 	import { isScheduleOutdated } from '#lib/league/schedule.ts';
 	import { LIMITS } from '#lib/league/types.ts';
 	import Dialog from '#lib/ui/Dialog.svelte';
@@ -14,9 +14,9 @@
 	let { data }: PageProps = $props();
 
 	let creating = $state(false);
+	let drawing = $state(false);
 
 	const league = $derived(data.league);
-	const suggestedColor = $derived(nextTeamColor(league.teams.map((team) => team.color)));
 	const calendarOutdated = $derived(
 		isScheduleOutdated(
 			league.teams.map((team) => team.id),
@@ -36,14 +36,24 @@
 				{league.tournament.playersOnField} jugadores.
 			</p>
 		</div>
-		<button
-			type="button"
-			class="btn btn-primary"
-			disabled={league.teams.length >= LIMITS.maxTeams}
-			onclick={() => (creating = true)}
-		>
-			<Icon name="plus" /> Añadir equipo
-		</button>
+		<div class="btn-row">
+			<button
+				type="button"
+				class="btn"
+				disabled={league.teams.length >= LIMITS.maxTeams}
+				onclick={() => (drawing = true)}
+			>
+				<Icon name="shuffle" /> Sortear equipos
+			</button>
+			<button
+				type="button"
+				class="btn btn-primary"
+				disabled={league.teams.length >= LIMITS.maxTeams}
+				onclick={() => (creating = true)}
+			>
+				<Icon name="plus" /> Añadir equipos
+			</button>
+		</div>
 	</div>
 	{#if calendarOutdated}
 		<div class="notice">
@@ -63,7 +73,8 @@
 
 {#if league.teams.length === 0}
 	<div class="empty first">
-		Todavía no hay equipos. Añade el primero para empezar a armar la copa.
+		Todavía no hay equipos. Escríbelos con “Añadir equipos”, o pega la lista de personas en “Sortear
+		equipos” y se arman solos.
 	</div>
 {:else}
 	<div class="two-columns list">
@@ -73,36 +84,43 @@
 	</div>
 {/if}
 
-<Dialog bind:open={creating} title="Añadir equipo">
+<Dialog bind:open={creating} title="Añadir equipos">
 	<form
-		id="create-team"
+		id="create-teams"
 		class="stack"
 		method="POST"
-		action="?/createTeam"
+		action="?/createTeams"
 		use:enhance={withFeedback({ reset: true, onSuccess: () => (creating = false) })}
 	>
 		<label class="field">
-			<span class="field-label">Nombre del equipo</span>
+			<span class="field-label">Un equipo por línea</span>
 			<!-- svelte-ignore a11y_autofocus -->
-			<input
-				class="input"
-				name="name"
-				maxlength={LIMITS.teamName}
-				required
-				autofocus
-				placeholder="Ej. Deportivo Playa Los Ángeles"
-			/>
+			<textarea class="input" name="teams" rows="7" required autofocus placeholder="Los Tiburones"
+			></textarea>
 		</label>
-		<label class="field">
-			<span class="field-label">Color</span>
-			<input type="color" name="color" value={suggestedColor} />
-		</label>
-		<p class="help">Después podrás cargar los jugadores en la tarjeta del equipo.</p>
+		<p class="help">
+			Cada equipo recibe un color distinto. Si quieres cargar de una vez los jugadores, escríbelos
+			después de dos puntos, separados por comas.
+		</p>
 	</form>
 	{#snippet footer()}
 		<button type="button" class="btn" onclick={() => (creating = false)}>Cancelar</button>
-		<button class="btn btn-primary" form="create-team">Crear equipo</button>
+		<button class="btn btn-primary" form="create-teams">Crear equipos</button>
 	{/snippet}
+</Dialog>
+
+<Dialog
+	bind:open={drawing}
+	title="Sortear equipos"
+	subtitle="Arma los equipos al azar con la lista de personas"
+	wide
+>
+	{#if drawing}
+		<TeamDraw
+			existingNames={league.teams.map((team) => team.name)}
+			ondone={() => (drawing = false)}
+		/>
+	{/if}
 </Dialog>
 
 <style>

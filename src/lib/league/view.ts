@@ -79,6 +79,8 @@ export interface PlayerEvents {
 	key: string;
 	name: string;
 	goals: number;
+	/** Minutes of the goals that were timed, in order. */
+	goalMinutes: number[];
 	yellows: number;
 	reds: number;
 }
@@ -90,21 +92,51 @@ export function eventsByPlayer(match: Match, team: Team | undefined): PlayerEven
 	const summary = new Map<string, PlayerEvents>();
 	for (const event of match.events) {
 		if (event.teamId !== team.id) continue;
-		const key = event.playerId === null ? `name:${event.playerName}` : `player:${event.playerId}`;
+		const isOwnGoal = event.type === 'own_goal';
+		const key = isOwnGoal
+			? 'own-goal'
+			: event.playerId === null
+				? `name:${event.playerName}`
+				: `player:${event.playerId}`;
 		let entry = summary.get(key);
 		if (!entry) {
-			const name = (event.playerId !== null && names.get(event.playerId)) || event.playerName;
-			entry = { key, name, goals: 0, yellows: 0, reds: 0 };
+			const name = isOwnGoal
+				? 'Autogol'
+				: (event.playerId !== null && names.get(event.playerId)) || event.playerName || 'Gol';
+			entry = { key, name, goals: 0, goalMinutes: [], yellows: 0, reds: 0 };
 			summary.set(key, entry);
 		}
-		if (event.type === 'goal') entry.goals += 1;
-		else if (event.type === 'yellow') entry.yellows += 1;
+		if (event.type === 'goal' || isOwnGoal) {
+			entry.goals += 1;
+			if (event.minute !== null) entry.goalMinutes.push(event.minute);
+		} else if (event.type === 'yellow') entry.yellows += 1;
 		else entry.reds += 1;
 	}
 	return [...summary.values()];
 }
 
-/** Goals of a side that were recorded with a scorer. */
-export function creditedGoals(match: Match, teamId: number): number {
-	return match.events.filter((event) => event.type === 'goal' && event.teamId === teamId).length;
+/** "5', 12'" when every goal was timed, "×2" when not, and nothing for a single untimed goal. */
+export function goalsLabel(player: PlayerEvents): string {
+	if (player.goals === 0) return '';
+	if (player.goalMinutes.length === player.goals) {
+		return player.goalMinutes.map((minute) => `${minute}'`).join(', ');
+	}
+	return player.goals > 1 ? `×${player.goals}` : '';
+}
+
+/** 1-based position of every match within its day, in playing order. */
+export function orderOfPlay(league: League): Map<number, number> {
+	const order = new Map<number, number>();
+	for (const { matches } of scheduleByDay(league)) {
+		matches.forEach((match, index) => order.set(match.id, index + 1));
+	}
+	return order;
+}
+
+/** The matches being played right now and the next one waiting to start. */
+export function nowAndNext(league: League): { live: Match[]; next: Match | undefined } {
+	return {
+		live: league.matches.filter((match) => match.status === 'live'),
+		next: league.matches.find((match) => match.status === 'pending')
+	};
 }

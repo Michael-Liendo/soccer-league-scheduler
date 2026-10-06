@@ -436,22 +436,20 @@ describe('recording results', () => {
 		expect(theMatch().events).toHaveLength(1);
 	});
 
-	it('lets the score be adjusted without naming scorers', () => {
-		const { matchId } = kickOff();
-		store.adjustScore(matchId, 'away', 1);
-		store.adjustScore(matchId, 'away', 1);
-		store.adjustScore(matchId, 'away', -1);
-
-		expect(theMatch()).toMatchObject({ status: 'live', homeScore: 0, awayScore: 1 });
+	it('counts an own goal for the team, with no scorer', () => {
+		const { homeId, keeper, matchId } = kickOff();
+		store.addMatchEvent(matchId, { teamId: homeId, playerId: keeper, type: 'own_goal' });
+		expect(theMatch()).toMatchObject({ homeScore: 1, awayScore: 0 });
+		expect(theMatch().events).toMatchObject([{ playerId: null, playerName: '', type: 'own_goal' }]);
 	});
 
-	it('never drops the score below the goals that have a scorer', () => {
-		const { homeId, scorer, matchId } = kickOff();
-		store.addMatchEvent(matchId, { teamId: homeId, playerId: scorer, type: 'goal' });
-		store.adjustScore(matchId, 'home', -1);
-		store.adjustScore(matchId, 'away', -1);
-
-		expect(theMatch()).toMatchObject({ homeScore: 1, awayScore: 0 });
+	it('accepts a goal whose scorer nobody caught, but not a card for nobody', () => {
+		const { awayId, matchId } = kickOff();
+		store.addMatchEvent(matchId, { teamId: awayId, playerId: null, type: 'goal' });
+		expect(theMatch()).toMatchObject({ awayScore: 1 });
+		expect(() =>
+			store.addMatchEvent(matchId, { teamId: awayId, playerId: null, type: 'yellow' })
+		).toThrow(/a quién se le mostró/);
 	});
 
 	it('changes the status of a match', () => {
@@ -484,7 +482,7 @@ describe('recording results', () => {
 	it('marks the league as updated on every change', () => {
 		const { matchId } = kickOff();
 		const before = store.getLeague().tournament.updatedAt;
-		store.adjustScore(matchId, 'home', 1);
+		store.startMatch(matchId);
 		expect(store.getLeague().tournament.updatedAt).toBeGreaterThan(before);
 	});
 });
@@ -510,5 +508,113 @@ describe('starting over', () => {
 		expect(league.teams).toEqual([]);
 		expect(league.matches).toEqual([]);
 		expect(league.matchDays.map((day) => day.date)).toEqual(SATURDAYS);
+	});
+});
+
+describe('the match clock', () => {
+	const MINUTE = 60_000;
+
+	function kickOff() {
+		time = 1_000_000;
+		const [homeId] = addTeams(2);
+		const scorer = store.addPlayer(homeId, { name: 'Luis Marcano', number: '10', position: null });
+		store.generateSchedule({ legs: 1, matchesPerDay: [1, 0, 0, 0], random: false });
+		return { homeId, scorer, matchId: store.getLeague().matches[0].id };
+	}
+
+	const theMatch = () => store.getLeague().matches[0];
+	const wait = (milliseconds: number) => (time += milliseconds);
+
+	it('runs from kick-off, keeps its time across a pause and stops at the end', () => {
+		const { matchId } = kickOff();
+		store.startMatch(matchId);
+		expect(theMatch().status).toBe('live');
+		wait(10 * MINUTE);
+		store.pauseMatch(matchId);
+		expect(theMatch().clockStartedAt).toBeNull();
+		expect(Math.floor(theMatch().clockElapsedMs / MINUTE)).toBe(10);
+
+		wait(5 * MINUTE);
+		store.startMatch(matchId);
+		wait(2 * MINUTE);
+		store.finishMatch(matchId);
+		expect(theMatch()).toMatchObject({ status: 'finished', clockStartedAt: null });
+		expect(Math.floor(theMatch().clockElapsedMs / MINUTE)).toBe(12);
+	});
+
+	it('stamps goals and cards with the minute being played', () => {
+		const { homeId, scorer, matchId } = kickOff();
+		store.startMatch(matchId);
+		store.addMatchEvent(matchId, { teamId: homeId, playerId: scorer, type: 'goal' });
+		wait(7 * MINUTE);
+		const card = store.addMatchEvent(matchId, { teamId: homeId, playerId: scorer, type: 'yellow' });
+		expect(theMatch().events.map((event) => event.minute)).toEqual([1, 8]);
+
+		store.setEventMinute(card, 19);
+		expect(theMatch().events[1].minute).toBe(19);
+		expect(() => store.setEventMinute(card, 0)).toThrow(LeagueError);
+	});
+
+	it('can be set by hand and goes back to zero when the result is cleared', () => {
+		const { matchId } = kickOff();
+		store.startMatch(matchId);
+		wait(4 * MINUTE);
+		store.setClock(matchId, 15 * MINUTE);
+		wait(MINUTE);
+		store.pauseMatch(matchId);
+		expect(Math.floor(theMatch().clockElapsedMs / MINUTE)).toBe(16);
+
+		store.resetMatch(matchId);
+		expect(theMatch()).toMatchObject({
+			status: 'pending',
+			clockStartedAt: null,
+			clockElapsedMs: 0
+		});
+	});
+});
+
+describe('order of play', () => {
+	it('swaps a match with its neighbour, trading kick-off times', () => {
+		addTeams(4);
+		store.generateSchedule({ legs: 1, matchesPerDay: [3, 3, 0, 0], random: false });
+		const dayOne = () => {
+			const league = store.getLeague();
+			return league.matches.filter((match) => match.matchDayId === league.matchDays[0].id);
+		};
+		const [first, second, third] = dayOne();
+
+		store.moveMatch(first.id, 'later');
+		expect(dayOne().map((match) => match.id)).toEqual([second.id, first.id, third.id]);
+		expect(dayOne().map((match) => match.time)).toEqual(['09:00', '09:25', '09:50']);
+
+		store.moveMatch(second.id, 'earlier');
+		expect(dayOne().map((match) => match.id)).toEqual([second.id, first.id, third.id]);
+	});
+});
+
+describe('adding many at once', () => {
+	it('creates teams with players and different colours, skipping taken names', () => {
+		store.createTeam({ name: 'Rayos', color: '#2563eb' });
+		const result = store.createTeams([
+			{ name: 'rayos', players: [] },
+			{ name: 'Truenos', players: [{ name: 'Ana', number: '7', position: null }] },
+			{ name: 'Centellas', players: [] }
+		]);
+		expect(result).toEqual({ created: ['Truenos', 'Centellas'], skipped: ['rayos'] });
+
+		const { teams } = store.getLeague();
+		expect(new Set(teams.map((team) => team.color)).size).toBe(3);
+		expect(teams[1].players).toMatchObject([{ name: 'Ana', number: '7' }]);
+	});
+
+	it('adds a list of players to a team', () => {
+		const teamId = store.createTeam({ name: 'Rayos', color: '#2563eb' });
+		expect(
+			store.addPlayers(teamId, [
+				{ name: 'Ana', number: null, position: null },
+				{ name: 'Luis', number: '10', position: null }
+			])
+		).toBe(2);
+		expect(() => store.addPlayers(teamId, [])).toThrow(LeagueError);
 	});
 });

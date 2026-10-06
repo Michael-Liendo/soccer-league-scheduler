@@ -1,160 +1,211 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import { elapsedMs, formatClock, hasClockStarted, isClockRunning } from '#lib/league/clock.ts';
 	import { formatDate } from '#lib/league/format.ts';
-	import { STATUS_LABELS } from '#lib/league/labels.ts';
 	import {
 		LIMITS,
-		MATCH_STATUSES,
 		type League,
 		type Match,
-		type MatchSide,
+		type MatchEvent,
+		type MatchEventType,
 		type Team
 	} from '#lib/league/types.ts';
-	import { creditedGoals, sortedPlayers } from '#lib/league/view.ts';
+	import { sortedPlayers } from '#lib/league/view.ts';
 	import { withFeedback } from '#lib/ui/forms.ts';
 	import Icon from '#lib/ui/Icon.svelte';
 
 	interface Props {
 		match: Match;
 		league: League;
+		/** Current time in epoch milliseconds, ticking. */
+		now: number;
 	}
 
-	let { match, league }: Props = $props();
+	let { match, league, now }: Props = $props();
 
-	let selectedTeamId = $state<number | null>(null);
+	/** What is being recorded, while the player is being picked. */
+	let picking = $state<{ teamId: number; type: MatchEventType } | null>(null);
 	let confirmingReset = $state(false);
 
 	const home = $derived(league.teams.find((team) => team.id === match.homeTeamId));
 	const away = $derived(league.teams.find((team) => team.id === match.awayTeamId));
-	const sides = $derived<{ side: MatchSide; team: Team | undefined; score: number }[]>([
-		{ side: 'home', team: home, score: match.homeScore },
-		{ side: 'away', team: away, score: match.awayScore }
+	const sides = $derived<{ team: Team | undefined; score: number }[]>([
+		{ team: home, score: match.homeScore },
+		{ team: away, score: match.awayScore }
 	]);
+	const pickingTeam = $derived(league.teams.find((team) => team.id === picking?.teamId));
+	const played = $derived(elapsedMs(match, now));
+	const running = $derived(isClockRunning(match));
+	const overtime = $derived(played > league.tournament.matchMinutes * 60_000);
+	const hasResult = $derived(
+		match.status !== 'pending' || match.events.length > 0 || hasClockStarted(match)
+	);
 
-	// Goals and cards go to the home team unless the other one is picked.
-	const eventTeam = $derived(selectedTeamId === away?.id ? away : home);
-	const eventPlayers = $derived(eventTeam ? sortedPlayers(eventTeam) : []);
-	const teamNames = $derived(new Map(league.teams.map((team) => [team.id, team.name])));
-	const hasResult = $derived(match.status !== 'pending' || match.events.length > 0);
+	const PICK_TITLES: Record<MatchEventType, string> = {
+		goal: '¿Quién metió el gol?',
+		own_goal: 'Autogol',
+		yellow: '¿Amarilla para quién?',
+		red: '¿Roja para quién?'
+	};
 
-	function playerName(event: Match['events'][number]): string {
+	function eventLabel(event: MatchEvent): string {
+		if (event.type === 'own_goal') return 'Autogol';
 		const team = league.teams.find((candidate) => candidate.id === event.teamId);
 		const player = team?.players.find((candidate) => candidate.id === event.playerId);
-		return player?.name ?? event.playerName;
+		return player?.name ?? (event.playerName || 'Gol sin goleador');
 	}
+
+	const recorded = () => withFeedback({ onSuccess: () => (picking = null) });
 </script>
 
-<div class="scoreboard">
-	{#each sides as { side, team, score } (side)}
-		{@const credited = team ? creditedGoals(match, team.id) : 0}
-		<form class="side" method="POST" action="?/score" use:enhance={withFeedback()}>
-			<input type="hidden" name="matchId" value={match.id} />
-			<input type="hidden" name="side" value={side} />
-			<span class="name">{team?.name ?? 'Por definir'}</span>
-			<div class="stepper">
-				<button
-					name="delta"
-					value="-1"
-					disabled={score <= credited}
-					aria-label="Restar un gol a {team?.name}"
-				>
-					−
-				</button>
-				<output aria-live="polite">{score}</output>
-				<button name="delta" value="1" aria-label="Sumar un gol a {team?.name}">+</button>
+<div class="board">
+	<div class="score">
+		{#each sides as { team, score }, index (index)}
+			<div class="side">
+				<span class="name">{team?.name ?? 'Por definir'}</span>
+				<output>{score}</output>
 			</div>
-			<small>
-				{#if credited === 0}
-					Sin goleadores anotados
-				{:else}
-					{credited === 1 ? '1 gol con goleador' : `${credited} goles con goleador`}
-				{/if}
-			</small>
-		</form>
-	{/each}
-</div>
-
-<form class="field" method="POST" action="?/status" use:enhance={withFeedback()}>
-	<input type="hidden" name="matchId" value={match.id} />
-	<span class="field-label">Estado</span>
-	<div class="segments">
-		{#each MATCH_STATUSES as status (status)}
-			<button name="status" value={status} aria-pressed={match.status === status}>
-				{STATUS_LABELS[status]}
-			</button>
 		{/each}
 	</div>
-</form>
 
-<form class="recorder" method="POST" action="?/addEvent" use:enhance={withFeedback()}>
-	<input type="hidden" name="matchId" value={match.id} />
-	<span class="field-label">Anotar gol o tarjeta</span>
-	<div class="segments">
-		{#each [home, away] as team (team?.id)}
+	<div class="clock" class:overtime>
+		<span class="time" aria-live="off">{formatClock(played)}</span>
+		<span class="of">de {league.tournament.matchMinutes}:00</span>
+	</div>
+
+	<form class="clock-buttons" method="POST" action="?/clock" use:enhance={withFeedback()}>
+		<input type="hidden" name="matchId" value={match.id} />
+		{#if match.status === 'finished'}
+			<button class="btn btn-on-board" name="step" value="start">Reanudar partido</button>
+		{:else if running}
+			<button class="btn btn-on-board" name="step" value="pause">Pausar</button>
+			<button class="btn btn-primary" name="step" value="finish">Finalizar partido</button>
+		{:else}
+			<button class="btn btn-primary" name="step" value="start">
+				{hasClockStarted(match) ? 'Reanudar' : 'Iniciar partido'}
+			</button>
+			{#if match.status === 'live'}
+				<button class="btn btn-on-board" name="step" value="finish">Finalizar partido</button>
+			{/if}
+		{/if}
+	</form>
+</div>
+
+{#if picking && pickingTeam}
+	<section class="picker">
+		<header>
+			<h3 class="section-title">{PICK_TITLES[picking.type]}</h3>
+			<span class="muted">{pickingTeam.name}</span>
+		</header>
+		<form class="players" method="POST" action="?/addEvent" use:enhance={recorded()}>
+			<input type="hidden" name="matchId" value={match.id} />
+			<input type="hidden" name="teamId" value={pickingTeam.id} />
+			<input type="hidden" name="type" value={picking.type} />
+			{#each sortedPlayers(pickingTeam) as player (player.id)}
+				<button class="btn player" name="playerId" value={player.id}>
+					{#if player.number}<span class="shirt">{player.number}</span>{/if}
+					{player.name}
+				</button>
+			{/each}
+		</form>
+		<form class="new-player" method="POST" action="?/addEvent" use:enhance={recorded()}>
+			<input type="hidden" name="matchId" value={match.id} />
+			<input type="hidden" name="teamId" value={pickingTeam.id} />
+			<input type="hidden" name="type" value={picking.type} />
+			<input
+				class="input"
+				name="newPlayer"
+				maxlength={LIMITS.playerName}
+				required
+				placeholder="Otro jugador: escribe su nombre"
+				aria-label="Nombre de un jugador nuevo"
+			/>
+			<button class="btn">Añadir y anotar</button>
+		</form>
+		<div class="btn-row">
+			{#if picking.type === 'goal'}
+				<form method="POST" action="?/addEvent" use:enhance={recorded()}>
+					<input type="hidden" name="matchId" value={match.id} />
+					<input type="hidden" name="teamId" value={pickingTeam.id} />
+					<button class="btn btn-sm btn-quiet" name="type" value="own_goal">Fue autogol</button>
+					<button class="btn btn-sm btn-quiet" name="type" value="goal">No sé quién fue</button>
+				</form>
+			{/if}
+			<button type="button" class="btn btn-sm" onclick={() => (picking = null)}>Cancelar</button>
+		</div>
+	</section>
+{:else}
+	<div class="teams">
+		{#each sides as { team }, index (index)}
 			{#if team}
-				<label class:checked={eventTeam?.id === team.id}>
-					<input
-						class="visually-hidden"
-						type="radio"
-						name="teamId"
-						value={team.id}
-						checked={eventTeam?.id === team.id}
-						onchange={() => (selectedTeamId = team.id)}
-					/>
-					{team.name}
-				</label>
+				<div class="team" style:--team-color={team.color}>
+					<span class="team-name">{team.name}</span>
+					<button
+						type="button"
+						class="btn goal"
+						onclick={() => (picking = { teamId: team.id, type: 'goal' })}
+					>
+						<Icon name="ball" size={18} /> Gol
+					</button>
+					<div class="cards">
+						<button
+							type="button"
+							class="btn"
+							aria-label="Amarilla para {team.name}"
+							onclick={() => (picking = { teamId: team.id, type: 'yellow' })}
+						>
+							<span class="card yellow"></span> Amarilla
+						</button>
+						<button
+							type="button"
+							class="btn"
+							aria-label="Roja para {team.name}"
+							onclick={() => (picking = { teamId: team.id, type: 'red' })}
+						>
+							<span class="card red"></span> Roja
+						</button>
+					</div>
+				</div>
 			{/if}
 		{/each}
 	</div>
-	{#if eventPlayers.length === 0}
-		<p class="help">
-			Este equipo no tiene jugadores cargados. Añádelos en la pestaña Equipos, o usa los botones + y
-			− del marcador para llevar el resultado sin goleadores.
-		</p>
-	{:else}
-		<select class="input" name="playerId" aria-label="Jugador">
-			{#each eventPlayers as player (player.id)}
-				<option value={player.id}>
-					{player.number ? `#${player.number} ` : ''}{player.name}
-				</option>
-			{/each}
-		</select>
-		<div class="event-buttons">
-			<button class="btn" name="type" value="goal">
-				<Icon name="ball" />
-				Gol
-			</button>
-			<button class="btn" name="type" value="yellow">
-				<span class="card yellow"></span> Amarilla
-			</button>
-			<button class="btn" name="type" value="red"><span class="card red"></span> Roja</button>
-		</div>
-	{/if}
-</form>
+{/if}
 
 <div class="field">
-	<span class="field-label">Goles y tarjetas del partido</span>
+	<span class="field-label">Lo que ha pasado</span>
 	{#if match.events.length === 0}
-		<p class="help">Aún no hay goles ni tarjetas anotados.</p>
+		<p class="help">Aún no hay goles ni tarjetas. Toca “Gol” y elige al jugador.</p>
 	{:else}
 		<ul class="events">
 			{#each match.events as event (event.id)}
 				<li>
+					<form method="POST" action="?/setMinute" use:enhance={withFeedback()}>
+						<input type="hidden" name="eventId" value={event.id} />
+						<input
+							class="input minute"
+							name="minute"
+							value={event.minute ?? ''}
+							inputmode="numeric"
+							maxlength="3"
+							placeholder="–"
+							aria-label="Minuto"
+							onchange={(e) => e.currentTarget.form?.requestSubmit()}
+						/>
+					</form>
 					<span class="event">
-						{#if event.type === 'goal'}
+						{#if event.type === 'goal' || event.type === 'own_goal'}
 							<Icon name="ball" />
 						{:else}
-							<span
-								class={['card', event.type]}
-								title={event.type === 'yellow' ? 'Amarilla' : 'Roja'}
-							></span>
+							<span class={['card', event.type]}></span>
 						{/if}
-						<strong>{playerName(event)}</strong>
-						<span class="muted">{teamNames.get(event.teamId)}</span>
+						<strong>{eventLabel(event)}</strong>
+						<span class="muted">
+							{league.teams.find((team) => team.id === event.teamId)?.name}
+						</span>
 					</span>
 					<form method="POST" action="?/removeEvent" use:enhance={withFeedback()}>
 						<input type="hidden" name="eventId" value={event.id} />
-						<button class="icon-btn danger" aria-label="Borrar: {playerName(event)}">
+						<button class="icon-btn danger" aria-label="Borrar: {eventLabel(event)}">
 							<Icon name="trash" />
 						</button>
 					</form>
@@ -164,8 +215,25 @@
 	{/if}
 </div>
 
-<details class="schedule">
-	<summary>Día, hora y cancha</summary>
+<details class="more">
+	<summary>Corregir reloj, día, hora y cancha</summary>
+	<form class="inline" method="POST" action="?/setClock" use:enhance={withFeedback()}>
+		<input type="hidden" name="matchId" value={match.id} />
+		<label class="field">
+			<span class="field-label">Minutos jugados</span>
+			<input
+				class="input"
+				type="number"
+				name="minutes"
+				min="0"
+				max={LIMITS.maxClockMinutes}
+				value={Math.floor(played / 60_000)}
+				required
+				inputmode="numeric"
+			/>
+		</label>
+		<button class="btn btn-sm">Poner reloj</button>
+	</form>
 	<form class="stack" method="POST" action="?/reschedule" use:enhance={withFeedback()}>
 		<input type="hidden" name="matchId" value={match.id} />
 		<label class="field">
@@ -196,49 +264,58 @@
 			<button class="btn btn-sm">Guardar día y hora</button>
 		</div>
 	</form>
+	{#if hasResult}
+		<div class="btn-row">
+			{#if confirmingReset}
+				<span class="warn">Se borran el marcador, el reloj, los goles y las tarjetas.</span>
+				<form
+					method="POST"
+					action="?/resetMatch"
+					use:enhance={withFeedback({ onSuccess: () => (confirmingReset = false) })}
+				>
+					<input type="hidden" name="matchId" value={match.id} />
+					<button class="btn btn-sm btn-danger-solid">Sí, borrar</button>
+				</form>
+				<button type="button" class="btn btn-sm" onclick={() => (confirmingReset = false)}>
+					No
+				</button>
+			{:else}
+				<button
+					type="button"
+					class="btn btn-sm btn-danger"
+					onclick={() => (confirmingReset = true)}
+				>
+					Borrar resultado
+				</button>
+			{/if}
+		</div>
+	{/if}
 </details>
 
-{#if hasResult}
-	<div class="reset">
-		{#if confirmingReset}
-			<span class="warn">Se borran el marcador, los goles y las tarjetas de este partido.</span>
-			<form
-				method="POST"
-				action="?/resetMatch"
-				use:enhance={withFeedback({ onSuccess: () => (confirmingReset = false) })}
-			>
-				<input type="hidden" name="matchId" value={match.id} />
-				<button class="btn btn-sm btn-danger-solid">Sí, borrar</button>
-			</form>
-			<button type="button" class="btn btn-sm" onclick={() => (confirmingReset = false)}>
-				No
-			</button>
-		{:else}
-			<button type="button" class="btn btn-sm btn-danger" onclick={() => (confirmingReset = true)}>
-				Borrar resultado
-			</button>
-		{/if}
-	</div>
-{/if}
-
 <style>
-	.scoreboard {
-		display: grid;
-		grid-template-columns: 1fr 1fr;
-		gap: 8px;
-		padding: 14px 10px;
+	.board {
+		display: flex;
+		flex-direction: column;
+		gap: 10px;
+		padding: 14px 12px;
 		border-radius: 12px;
 		background: var(--color-board);
 		color: var(--color-on-board);
+		text-align: center;
+	}
+
+	.score {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		gap: 8px;
 	}
 
 	.side {
 		display: flex;
 		flex-direction: column;
 		align-items: center;
-		gap: 8px;
+		gap: 2px;
 		min-width: 0;
-		text-align: center;
 	}
 
 	.name {
@@ -247,89 +324,133 @@
 		overflow-wrap: anywhere;
 	}
 
-	.stepper {
-		display: flex;
-		align-items: center;
-		gap: 8px;
-	}
-
-	.stepper output {
-		min-width: 46px;
+	.side output {
 		font-family: var(--font-display);
 		font-weight: 800;
-		font-size: 2.7rem;
+		font-size: 3.4rem;
 		line-height: 1;
 	}
 
-	.stepper button {
-		width: 44px;
-		height: 44px;
-		border: 1px solid rgb(255 255 255 / 0.3);
-		border-radius: 10px;
-		background: rgb(255 255 255 / 0.1);
-		color: inherit;
-		font-size: 1.35rem;
-		cursor: pointer;
+	.clock {
+		display: flex;
+		align-items: baseline;
+		justify-content: center;
+		gap: 8px;
 	}
 
-	.stepper button[disabled] {
-		opacity: 0.3;
-		cursor: not-allowed;
+	.time {
+		font-family: var(--font-display);
+		font-weight: 700;
+		font-size: 2.2rem;
+		font-variant-numeric: tabular-nums;
+		line-height: 1;
 	}
 
-	.side small {
-		font-size: 0.76rem;
+	.clock.overtime .time {
+		color: var(--color-accent);
+	}
+
+	.of {
+		font-size: 0.85rem;
 		opacity: 0.75;
 	}
 
-	.segments {
+	.clock-buttons {
 		display: flex;
-		border: 1px solid var(--color-border);
-		border-radius: var(--radius-m);
-		overflow: hidden;
+		flex-wrap: wrap;
+		justify-content: center;
+		gap: 8px;
 	}
 
-	.segments > * {
-		flex: 1;
-		min-width: 0;
-		padding: 9px 6px;
-		border: 0;
-		border-right: 1px solid var(--color-border);
-		background: none;
+	.clock-buttons .btn {
+		min-height: 46px;
+		padding-inline: 18px;
+		font-size: 1rem;
+	}
+
+	.clock-buttons :global(.btn-on-board) {
+		border-color: rgb(255 255 255 / 0.35);
+		background: rgb(255 255 255 / 0.12);
 		color: inherit;
-		font-size: 0.9rem;
-		font-weight: 600;
-		text-align: center;
-		cursor: pointer;
 	}
 
-	.segments > :last-child {
-		border-right: 0;
+	.teams {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		gap: 10px;
 	}
 
-	.segments > [aria-pressed='true'],
-	.segments > .checked {
-		background: var(--color-text);
-		color: var(--color-bg);
+	.team {
+		display: flex;
+		flex-direction: column;
+		gap: 8px;
+		min-width: 0;
+		padding: 10px;
+		border: 1px solid var(--color-border);
+		border-top: 5px solid var(--team-color);
+		border-radius: 12px;
 	}
 
-	.segments > :has(:focus-visible) {
-		outline: 3px solid var(--color-accent);
-		outline-offset: -3px;
+	.team-name {
+		font-weight: 700;
+		overflow-wrap: anywhere;
 	}
 
-	.recorder {
+	.goal {
+		min-height: 56px;
+		font-size: 1.15rem;
+	}
+
+	.cards {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		gap: 6px;
+	}
+
+	.cards .btn {
+		gap: 4px;
+		min-width: 0;
+		padding-inline: 2px;
+		font-size: 0.8rem;
+	}
+
+	.picker {
 		display: flex;
 		flex-direction: column;
 		gap: 10px;
 		padding: 12px;
-		border: 1px solid var(--color-border);
+		border: 2px solid var(--color-accent);
 		border-radius: 12px;
 	}
 
-	.event-buttons {
+	.picker header {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: baseline;
+		gap: 4px 10px;
+	}
+
+	.players {
 		display: grid;
-		grid-template-columns: repeat(3, 1fr);
+		grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+		gap: 8px;
+	}
+
+	.player {
+		justify-content: flex-start;
+		min-height: 50px;
+		text-align: left;
+	}
+
+	.new-player {
+		display: grid;
+		grid-template-columns: 1fr auto;
+		gap: 8px;
+	}
+
+	.picker .btn-row form {
+		display: flex;
+		flex-wrap: wrap;
 		gap: 8px;
 	}
 
@@ -359,14 +480,20 @@
 	}
 
 	.events li {
-		display: flex;
+		display: grid;
+		grid-template-columns: 52px 1fr auto;
 		align-items: center;
-		justify-content: space-between;
 		gap: 8px;
-		padding: 4px 4px 4px 12px;
+		padding: 4px 4px 4px 6px;
 		border-radius: var(--radius-m);
 		background: var(--color-bg);
 		font-size: 0.92rem;
+	}
+
+	.minute {
+		min-height: 34px;
+		padding: 4px;
+		text-align: center;
 	}
 
 	.event {
@@ -381,53 +508,29 @@
 		font-size: 0.84rem;
 	}
 
-	.schedule {
+	.more {
 		padding-top: 12px;
 		border-top: 1px solid var(--color-border);
 	}
 
-	.schedule summary {
+	.more summary {
 		color: var(--color-text-muted);
 		font-weight: 600;
 		cursor: pointer;
 	}
 
-	.schedule form {
-		margin-top: 12px;
+	.more > :not(summary) {
+		margin-top: 14px;
 	}
 
-	.reset {
+	.inline {
 		display: flex;
 		flex-wrap: wrap;
-		align-items: center;
+		align-items: flex-end;
 		gap: 8px;
 	}
 
-	@media (max-width: 480px) {
-		.scoreboard {
-			padding-inline: 6px;
-		}
-
-		.stepper {
-			gap: 4px;
-		}
-
-		.stepper button {
-			width: 40px;
-			height: 40px;
-		}
-
-		.stepper output {
-			min-width: 40px;
-			font-size: 2.4rem;
-		}
-
-		.event-buttons {
-			gap: 6px;
-		}
-
-		.event-buttons .btn {
-			padding-inline: 6px;
-		}
+	.inline .field {
+		max-width: 160px;
 	}
 </style>

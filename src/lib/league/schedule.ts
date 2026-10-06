@@ -5,8 +5,9 @@
  * number generator is passed in to draw the fixtures.
  */
 import { addMinutes, toMinutes } from './format.ts';
+import { shuffled, type Rng } from './random.ts';
 
-export type Rng = () => number;
+export type { Rng };
 
 export interface Pairing {
 	/** 1-based round number across all legs. Every team plays at most once per round. */
@@ -73,15 +74,6 @@ export function totalRounds(teamCount: number, legs: number): number {
 export function totalMatches(teamCount: number, legs: number): number {
 	if (teamCount < 2) return 0;
 	return ((teamCount * (teamCount - 1)) / 2) * legs;
-}
-
-function shuffled<T>(items: readonly T[], rng: Rng): T[] {
-	const result = [...items];
-	for (let i = result.length - 1; i > 0; i--) {
-		const j = Math.floor(rng() * (i + 1));
-		[result[i], result[j]] = [result[j], result[i]];
-	}
-	return result;
 }
 
 /**

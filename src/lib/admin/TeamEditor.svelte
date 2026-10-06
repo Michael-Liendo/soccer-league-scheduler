@@ -15,6 +15,7 @@
 	let { team, playersOnField }: Props = $props();
 
 	let confirmingDelete = $state(false);
+	let pasting = $state(false);
 	let newPlayerName: HTMLInputElement | undefined = $state();
 
 	const missingPlayers = $derived(Math.max(0, playersOnField - team.players.length));
@@ -135,14 +136,38 @@
 			placeholder="Nombre del jugador"
 			aria-label="Nombre del nuevo jugador"
 		/>
-		<select class="input" name="position" aria-label="Posición del nuevo jugador">
-			<option value="">Posición</option>
-			{#each POSITIONS as position (position)}
-				<option value={position}>{POSITION_LABELS[position]}</option>
-			{/each}
-		</select>
 		<button class="btn btn-sm">Añadir</button>
 	</form>
+
+	{#if pasting}
+		<form
+			class="paste"
+			method="POST"
+			action="?/addPlayers"
+			use:enhance={withFeedback({ reset: true, onSuccess: () => (pasting = false) })}
+		>
+			<input type="hidden" name="teamId" value={team.id} />
+			<textarea
+				class="input"
+				name="players"
+				rows="4"
+				required
+				placeholder="10 Luis Marcano, Pedro Rojas… (uno por línea o separados por comas)"
+				aria-label="Lista de jugadores"></textarea>
+			<div class="btn-row">
+				<button class="btn btn-sm btn-primary">Añadir todos</button>
+				<button type="button" class="btn btn-sm" onclick={() => (pasting = false)}>Cancelar</button>
+			</div>
+		</form>
+	{:else}
+		<button
+			type="button"
+			class="btn btn-sm btn-quiet paste-toggle"
+			onclick={() => (pasting = true)}
+		>
+			Pegar una lista de jugadores
+		</button>
+	{/if}
 </section>
 
 <Dialog bind:open={confirmingDelete} title="Eliminar {team.name}">
@@ -220,8 +245,19 @@
 	}
 
 	.player-fields.add {
-		grid-template-columns: 58px 1fr 118px auto;
+		grid-template-columns: 58px 1fr auto;
 		margin-top: 10px;
+	}
+
+	.paste {
+		display: flex;
+		flex-direction: column;
+		gap: 8px;
+		margin-top: 10px;
+	}
+
+	.paste-toggle {
+		margin-top: 8px;
 	}
 
 	@media (max-width: 540px) {
@@ -234,11 +270,7 @@
 		}
 
 		.player-fields.add {
-			grid-template-columns: 52px 1fr;
-		}
-
-		.player-fields.add .btn {
-			grid-column: 1 / -1;
+			grid-template-columns: 52px 1fr auto;
 		}
 	}
 </style>

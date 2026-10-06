@@ -4,10 +4,16 @@ export type Position = (typeof POSITIONS)[number];
 export const MATCH_STATUSES = ['pending', 'live', 'finished'] as const;
 export type MatchStatus = (typeof MATCH_STATUSES)[number];
 
-export const MATCH_EVENT_TYPES = ['goal', 'yellow', 'red'] as const;
+/**
+ * `own_goal` is a goal put in by the other side: it counts for the team it is recorded under,
+ * and for no scorer.
+ */
+export const MATCH_EVENT_TYPES = ['goal', 'own_goal', 'yellow', 'red'] as const;
 export type MatchEventType = (typeof MATCH_EVENT_TYPES)[number];
 
-export type MatchSide = 'home' | 'away';
+export function countsAsGoal(type: MatchEventType): boolean {
+	return type === 'goal' || type === 'own_goal';
+}
 
 export interface Player {
 	id: number;
@@ -38,9 +44,12 @@ export interface MatchEvent {
 	id: number;
 	matchId: number;
 	teamId: number;
+	/** Null when the player was not named, or has since left the roster. */
 	playerId: number | null;
+	/** Name at the time of the event. Empty when the player was not named. */
 	playerName: string;
 	type: MatchEventType;
+	/** Minute of play, counting from 1, or null when it was not timed. */
 	minute: number | null;
 }
 
@@ -58,6 +67,10 @@ export interface Match {
 	status: MatchStatus;
 	homeScore: number;
 	awayScore: number;
+	/** Epoch milliseconds since which the match clock is running, or null while it is stopped. */
+	clockStartedAt: number | null;
+	/** Playing time, in milliseconds, accumulated before the clock was last started. */
+	clockElapsedMs: number;
 	events: MatchEvent[];
 }
 
@@ -102,5 +115,7 @@ export const LIMITS = {
 	maxLegs: 4,
 	minMatchMinutes: 5,
 	maxMatchMinutes: 120,
-	maxBreakMinutes: 60
+	maxBreakMinutes: 60,
+	/** The clock stops counting here, so a forgotten match cannot run for days. */
+	maxClockMinutes: 240
 } as const;

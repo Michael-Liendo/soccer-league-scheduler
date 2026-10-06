@@ -62,7 +62,7 @@ export function fairPlayTable(teams: readonly Team[], matches: readonly Match[])
 	for (const match of matches) {
 		for (const event of match.events) {
 			const row = rows.get(event.teamId);
-			if (!row || event.type === 'goal') continue;
+			if (!row || (event.type !== 'yellow' && event.type !== 'red')) continue;
 			if (event.type === 'yellow') row.yellows += 1;
 			else row.reds += 1;
 			row.points += FAIR_PLAY_POINTS[event.type];
@@ -144,7 +144,7 @@ export function computeStandings(
 	);
 }
 
-/** Goals and cards per player, across every match. */
+/** Goals and cards per player, across every match: the individual ranking. */
 export function computePlayerStats(
 	teams: readonly Team[],
 	matches: readonly Match[]
@@ -157,7 +157,9 @@ export function computePlayerStats(
 
 	for (const match of matches) {
 		for (const event of match.events) {
-			if (!teamIds.has(event.teamId)) continue;
+			if (!teamIds.has(event.teamId) || event.type === 'own_goal') continue;
+			// A goal nobody was named for counts for the team, not for any player.
+			if (event.playerId === null && event.playerName === '') continue;
 			const player = event.playerId === null ? undefined : roster.get(event.playerId);
 			const key = player ? `player:${player.id}` : `name:${event.teamId}:${event.playerName}`;
 			let stat = stats.get(key);
