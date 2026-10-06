@@ -1,0 +1,15 @@
+node_modules
+.svelte-kit
+build
+.git
+.claude
+.vscode
+.env
+.env.*
+!.env.example
+*.db
+*.db-shm
+*.db-wal
+Dockerfile
+.dockerignore
+README.md

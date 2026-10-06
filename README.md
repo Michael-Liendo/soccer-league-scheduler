@@ -1,0 +1,68 @@
+# Soccer League Scheduler
+
+A small web app to run a local soccer cup: register the teams, plan how many matches are played
+on each match day, and share a read-only calendar with the players. It was built for a
+three-a-side cup played over four Saturdays in Naiguatá, Venezuela, so the interface is in Spanish.
+
+- **Public view** (`/`): calendar by match day and team rosters, made for phones.
+- **Admin panel** (`/admin`): protected by a private code. Create teams and players, plan and
+  generate the calendar, move individual matches, and edit the cup settings.
+- **Planner**: given the teams, the match days and the daily timetable, it compares one to four
+  round-robin legs, recommends the format that gives every team two to three matches per day
+  without running past the end time, and spreads the matches so teams rest between games.
+
+Results, standings and statistics are the next step.
+
+## Stack
+
+[SvelteKit 3](https://svelte.dev/docs/kit) with Svelte 5 and TypeScript, SQLite through
+[Drizzle ORM](https://orm.drizzle.team) and `better-sqlite3`, and `adapter-node`. Everything runs
+in a single Node process with a single database file.
+
+## Development
+
+```sh
+pnpm install
+cp .env.example .env   # then set ADMIN_CODE
+pnpm dev
+```
+
+| Command            | What it does                                                   |
+| ------------------ | -------------------------------------------------------------- |
+| `pnpm dev`         | Start the dev server                                           |
+| `pnpm test`        | Run the unit tests                                             |
+| `pnpm check`       | Type-check the project                                         |
+| `pnpm lint`        | Check formatting and lint rules                                |
+| `pnpm build`       | Build the production server into `build/`                      |
+| `pnpm start`       | Run the production build                                       |
+| `pnpm db:generate` | Write a migration after changing `src/lib/server/db/schema.ts` |
+
+Migrations live in `drizzle/` and are bundled into the server, which applies the pending ones
+every time it starts. There is no separate migration step when deploying.
+
+## Configuration
+
+| Variable       | Default    | Purpose                                                                                                                               |
+| -------------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `ADMIN_CODE`   | _(unset)_  | Private code for the admin panel, at least 6 characters. The panel stays disabled while it is unset. Changing it signs everybody out. |
+| `DATABASE_URL` | `local.db` | Path of the SQLite file. The Docker image uses `/data/league.db`.                                                                     |
+| `PORT`         | `3000`     | Port the server listens on.                                                                                                           |
+
+The cup's name, place, field and players per side are edited in the admin panel. Dates and times
+are those of `America/Caracas` (see `LEAGUE_TIME_ZONE` in `src/lib/league/format.ts`).
+
+## Deploying with Coolify
+
+The repository ships a `Dockerfile`, so a deployment needs three settings:
+
+1. Create an application from this repository with the **Dockerfile** build pack and port `3000`.
+2. Add the environment variable `ADMIN_CODE` with your private code.
+3. Add a **persistent storage** volume mounted at `/data`, where the database is kept.
+
+The health check answers on `/health`.
+
+The image expects to run behind a reverse proxy that sets `X-Forwarded-Proto`,
+`X-Forwarded-Host` and `X-Forwarded-For`, as Coolify's proxy does. SvelteKit uses them to know the
+public address of the site and reject form posts coming from anywhere else. To run the image
+without a proxy, clear `PROTOCOL_HEADER`, `HOST_HEADER` and `ADDRESS_HEADER` and serve it over
+HTTPS.
