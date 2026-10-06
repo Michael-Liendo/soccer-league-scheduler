@@ -47,16 +47,19 @@
 {:else}
 	{#if winner && winnerTeam}
 		<section class="champion" style:--team-color={winnerTeam.color}>
-			<svg class="trophy" viewBox="0 0 120 130" aria-hidden="true">
+			<svg class="trophy" viewBox="0 0 96 104" aria-hidden="true">
+				<path
+					d="M24 14H10v8c0 10 6 16 16 17M72 14h14v8c0 10-6 16-16 17"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="6"
+					stroke-linecap="round"
+				/>
 				<g fill="currentColor">
-					<path d="M30 10h60c0 50-12 62-30 66C42 72 30 60 30 10z" />
-					<rect x="55" y="74" width="10" height="22" />
-					<rect x="40" y="94" width="40" height="9" rx="2" />
-					<rect x="32" y="104" width="56" height="12" rx="2" />
-				</g>
-				<g fill="none" stroke="currentColor" stroke-width="6">
-					<path d="M30 22c-14 0-18 8-18 14s6 16 20 18" />
-					<path d="M90 22c14 0 18 8 18 14s-6 16-20 18" />
+					<path d="M24 8h48v22c0 15-10 26-24 26S24 45 24 30z" />
+					<rect x="43" y="54" width="10" height="18" />
+					<path d="M30 72h36l4 12H26z" />
+					<rect x="20" y="88" width="56" height="10" rx="3" />
 				</g>
 			</svg>
 			<div>

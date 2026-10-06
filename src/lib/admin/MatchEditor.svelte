@@ -121,10 +121,7 @@
 		</select>
 		<div class="event-buttons">
 			<button class="btn" name="type" value="goal">
-				<svg class="ball" viewBox="0 0 24 24" aria-hidden="true">
-					<circle cx="12" cy="12" r="9.5" fill="none" stroke="currentColor" stroke-width="1.8" />
-					<path d="m12 7.2 4.1 3-1.6 4.8h-5l-1.6-4.8z" fill="currentColor" />
-				</svg>
+				<Icon name="ball" />
 				Gol
 			</button>
 			<button class="btn" name="type" value="yellow">
@@ -145,17 +142,7 @@
 				<li>
 					<span class="event">
 						{#if event.type === 'goal'}
-							<svg class="ball" viewBox="0 0 24 24" aria-label="Gol">
-								<circle
-									cx="12"
-									cy="12"
-									r="9.5"
-									fill="none"
-									stroke="currentColor"
-									stroke-width="1.8"
-								/>
-								<path d="m12 7.2 4.1 3-1.6 4.8h-5l-1.6-4.8z" fill="currentColor" />
-							</svg>
+							<Icon name="ball" />
 						{:else}
 							<span
 								class={['card', event.type]}
@@ -344,12 +331,6 @@
 		display: grid;
 		grid-template-columns: repeat(3, 1fr);
 		gap: 8px;
-	}
-
-	.ball {
-		flex: none;
-		width: 16px;
-		height: 16px;
 	}
 
 	.card {

@@ -16,7 +16,14 @@
 
 	let { league, today, actions, hasActions = () => true }: Props = $props();
 
-	let dayFilter = $state('all');
+	/** On a match day the list opens on that day's matches; otherwise it shows them all. */
+	function initialDayFilter(): string {
+		const playingToday = league.matchDays.find((day) => day.date === today);
+		const hasMatches = league.matches.some((match) => match.matchDayId === playingToday?.id);
+		return playingToday && hasMatches ? String(playingToday.id) : 'all';
+	}
+
+	let dayFilter = $state(initialDayFilter());
 	let teamFilter = $state('all');
 
 	const teams = $derived(teamsById(league.teams));

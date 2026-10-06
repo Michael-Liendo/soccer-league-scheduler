@@ -4,6 +4,7 @@
 	import { STATUS_LABELS } from '#lib/league/labels.ts';
 	import type { Match, Team } from '#lib/league/types.ts';
 	import { eventsByPlayer, type PlayerEvents } from '#lib/league/view.ts';
+	import Icon from './Icon.svelte';
 
 	interface Props {
 		match: Match;
@@ -75,10 +76,7 @@
 {#snippet playerEvents(player: PlayerEvents)}
 	<li>
 		{#if player.goals > 0}
-			<svg class="ball" viewBox="0 0 24 24" aria-label="Gol">
-				<circle cx="12" cy="12" r="9.5" fill="none" stroke="currentColor" stroke-width="1.8" />
-				<path d="m12 7.2 4.1 3-1.6 4.8h-5l-1.6-4.8z" fill="currentColor" />
-			</svg>
+			<span class="visually-hidden">Gol:</span><Icon name="ball" size={14} />
 		{/if}
 		<span>{player.name}{player.goals > 1 ? ` ×${player.goals}` : ''}</span>
 		{#each times(player.yellows) as index (index)}
@@ -244,12 +242,6 @@
 
 	.events .home li {
 		justify-content: flex-end;
-	}
-
-	.ball {
-		flex: none;
-		width: 14px;
-		height: 14px;
 	}
 
 	.card {
