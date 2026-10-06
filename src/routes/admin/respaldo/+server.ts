@@ -1,5 +1,6 @@
 import { todayIso } from '#lib/league/format.ts';
 import { league } from '#lib/server/league.ts';
+import { error } from '@sveltejs/kit';
 import { requireAdmin } from '#lib/server/session.ts';
 import type { RequestHandler } from './$types';
 
@@ -17,6 +18,8 @@ function slug(text: string): string {
 /** Downloads everything the league holds as a JSON file, to keep a copy outside the server. */
 export const GET: RequestHandler = ({ locals }) => {
 	requireAdmin(locals);
+	if (locals.session?.role !== 'owner')
+		error(403, 'Solo el administrador puede descargar el respaldo.');
 	const snapshot = league().getLeague();
 	const filename = `respaldo-${slug(snapshot.tournament.name)}-${todayIso()}.json`;
 	const body = JSON.stringify(

@@ -10,9 +10,11 @@
 	interface Props {
 		team: Team;
 		playersOnField: number;
+		/** Only the owner may remove teams and players. */
+		canDelete: boolean;
 	}
 
-	let { team, playersOnField }: Props = $props();
+	let { team, playersOnField, canDelete }: Props = $props();
 
 	let confirmingDelete = $state(false);
 	let pasting = $state(false);
@@ -40,14 +42,16 @@
 			aria-label="Nombre del equipo"
 			onchange={submitOnChange}
 		/>
-		<button
-			type="button"
-			class="icon-btn danger"
-			aria-label="Eliminar {team.name}"
-			onclick={() => (confirmingDelete = true)}
-		>
-			<Icon name="trash" />
-		</button>
+		{#if canDelete}
+			<button
+				type="button"
+				class="icon-btn danger"
+				aria-label="Eliminar {team.name}"
+				onclick={() => (confirmingDelete = true)}
+			>
+				<Icon name="trash" />
+			</button>
+		{/if}
 	</form>
 
 	<p class="count" class:short={missingPlayers > 0}>
@@ -101,12 +105,14 @@
 							{/each}
 						</select>
 					</form>
-					<form method="POST" action="?/deletePlayer" use:enhance={withFeedback()}>
-						<input type="hidden" name="playerId" value={player.id} />
-						<button class="icon-btn danger" aria-label="Quitar a {player.name}">
-							<Icon name="trash" />
-						</button>
-					</form>
+					{#if canDelete}
+						<form method="POST" action="?/deletePlayer" use:enhance={withFeedback()}>
+							<input type="hidden" name="playerId" value={player.id} />
+							<button class="icon-btn danger" aria-label="Quitar a {player.name}">
+								<Icon name="trash" />
+							</button>
+						</form>
+					{/if}
 				</li>
 			{/each}
 		</ul>

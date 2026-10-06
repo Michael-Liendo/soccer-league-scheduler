@@ -4,7 +4,9 @@ declare global {
 	namespace App {
 		// interface Error {}
 		interface Locals {
-			/** Whether the request carries a valid admin session. */
+			/** Who is using the admin panel, or null for a visitor. */
+			session: import('#lib/server/session.ts').PanelSession | null;
+			/** Whether the request carries a valid panel session, of the owner or of a helper. */
 			isAdmin: boolean;
 		}
 		// interface PageData {}

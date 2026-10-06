@@ -618,3 +618,31 @@ describe('adding many at once', () => {
 		expect(() => store.addPlayers(teamId, [])).toThrow(LeagueError);
 	});
 });
+
+describe('helper access codes', () => {
+	it('are listed with who they are for, and found by their hash', () => {
+		const id = store.createAccessCode('  Pedro  ', 'hash-of-pedro');
+		expect(store.listAccessCodes()).toMatchObject([{ id, label: 'Pedro', lastUsedAt: null }]);
+
+		expect(store.useAccessCode('hash-of-someone-else')).toBeNull();
+		expect(store.useAccessCode('hash-of-pedro')).toMatchObject({ id, label: 'Pedro' });
+		expect(store.listAccessCodes()[0].lastUsedAt).toBeGreaterThan(0);
+	});
+
+	it('stop existing once revoked', () => {
+		const id = store.createAccessCode('Pedro', 'hash-of-pedro');
+		expect(store.getAccessCode(id)).toMatchObject({ label: 'Pedro' });
+
+		store.revokeAccessCode(id);
+		expect(store.getAccessCode(id)).toBeNull();
+		expect(store.useAccessCode('hash-of-pedro')).toBeNull();
+		expect(store.listAccessCodes()).toEqual([]);
+	});
+
+	it('need a name and survive a tournament reset', () => {
+		expect(() => store.createAccessCode('   ', 'hash')).toThrow(LeagueError);
+		store.createAccessCode('Pedro', 'hash-of-pedro');
+		store.resetTournament();
+		expect(store.listAccessCodes()).toHaveLength(1);
+	});
+});

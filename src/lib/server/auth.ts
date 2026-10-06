@@ -1,4 +1,4 @@
-import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
+import { createHash, createHmac, randomInt, timingSafeEqual } from 'node:crypto';
 
 export const SESSION_COOKIE = 'admin_session';
 export const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 30;
@@ -37,24 +37,59 @@ export function isCorrectCode(adminCode: string, attempt: string): boolean {
 }
 
 /**
+ * `owner` signed in with the admin code and can do everything. `helper` signed in with a code the
+ * owner created: enough to run matches and load teams, not to delete or rebuild things.
+ */
+export type SessionRole = 'owner' | 'helper';
+
+export interface SessionClaims {
+	role: SessionRole;
+	/** The access code a helper signed in with. Null for the owner. */
+	codeId: number | null;
+}
+
+const OWNER: SessionClaims = { role: 'owner', codeId: null };
+
+/**
  * Creates a signed, self-contained session token. It is derived from the admin code, so changing
  * the code signs everybody out.
  */
-export function createSessionToken(adminCode: string, now: number = Date.now()): string {
-	const expiresAt = String(now + SESSION_MAX_AGE_SECONDS * 1000);
-	return `${expiresAt}.${sign(adminCode, expiresAt)}`;
+export function createSessionToken(
+	adminCode: string,
+	claims: SessionClaims = OWNER,
+	now: number = Date.now()
+): string {
+	const expiresAt = now + SESSION_MAX_AGE_SECONDS * 1000;
+	const who = claims.role === 'owner' ? 'o' : `h${claims.codeId}`;
+	const payload = `${expiresAt}.${who}`;
+	return `${payload}.${sign(adminCode, payload)}`;
 }
 
-export function isValidSessionToken(
+/** Who a session token belongs to, or null when it is missing, expired or not ours. */
+export function readSessionToken(
 	adminCode: string,
 	token: string | undefined,
 	now: number = Date.now()
-): boolean {
-	if (!token) return false;
-	const separator = token.indexOf('.');
-	if (separator < 1) return false;
-	const expiresAt = token.slice(0, separator);
-	const signature = token.slice(separator + 1);
-	if (!/^\d+$/.test(expiresAt) || Number(expiresAt) <= now) return false;
-	return safeEqual(signature, sign(adminCode, expiresAt));
+): SessionClaims | null {
+	const match = /^(\d+)\.(o|h\d+)\.([\w-]+)$/.exec(token ?? '');
+	if (!match) return null;
+	const [, expiresAt, who, signature] = match;
+	if (Number(expiresAt) <= now) return null;
+	if (!safeEqual(signature, sign(adminCode, `${expiresAt}.${who}`))) return null;
+	return who === 'o' ? OWNER : { role: 'helper', codeId: Number(who.slice(1)) };
+}
+
+/** Letters and digits that are hard to mix up when read aloud or typed on a phone. */
+const CODE_ALPHABET = 'abcdefghjkmnpqrstuvwxyz23456789';
+
+/** A new random access code such as `k7mp-2xqa-9dnh`. */
+export function generateAccessCode(): string {
+	const group = () =>
+		Array.from({ length: 4 }, () => CODE_ALPHABET[randomInt(CODE_ALPHABET.length)]).join('');
+	return `${group()}-${group()}-${group()}`;
+}
+
+/** What is stored instead of an access code. Codes are random, so a plain hash is enough. */
+export function hashAccessCode(code: string): string {
+	return digest(`soccer-league-scheduler:access-code:${code.trim().toLowerCase()}`).toString('hex');
 }

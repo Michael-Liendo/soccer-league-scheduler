@@ -27,7 +27,15 @@ import {
 	type Tournament
 } from '#lib/league/types.ts';
 import type { Db } from './db/client.ts';
-import { matchDays, matchEvents, matches, players, teams, tournament } from './db/schema.ts';
+import {
+	accessCodes,
+	matchDays,
+	matchEvents,
+	matches,
+	players,
+	teams,
+	tournament
+} from './db/schema.ts';
 import { LeagueError } from './errors.ts';
 
 const TOURNAMENT_ID = 1;
@@ -112,6 +120,17 @@ export interface TeamWithPlayersInput {
 export type MoveDirection = 'earlier' | 'later';
 
 const MAX_SCORE = 99;
+
+/** A code the owner handed to a helper. The code itself is never stored, only its hash. */
+export interface AccessCode {
+	id: number;
+	/** Who it was given to. */
+	label: string;
+	createdAt: number;
+	lastUsedAt: number | null;
+}
+
+const MAX_ACCESS_CODES = 20;
 
 export interface Clock {
 	/** Current time in epoch milliseconds. */
@@ -963,6 +982,69 @@ export function createLeagueStore(db: Db, clock: Clock = systemClock) {
 					.run();
 				touch(tx);
 			});
+		},
+
+		listAccessCodes(): AccessCode[] {
+			return db
+				.select({
+					id: accessCodes.id,
+					label: accessCodes.label,
+					createdAt: accessCodes.createdAt,
+					lastUsedAt: accessCodes.lastUsedAt
+				})
+				.from(accessCodes)
+				.orderBy(asc(accessCodes.id))
+				.all();
+		},
+
+		/** Registers a helper's code, given the hash of the code that was generated for them. */
+		createAccessCode(label: string, codeHash: string): number {
+			const name = requireText(label, 'el nombre de quien va a usar la clave', LIMITS.playerName);
+			return db.transaction((tx) => {
+				const total = tx.select({ value: count() }).from(accessCodes).get();
+				if ((total?.value ?? 0) >= MAX_ACCESS_CODES) {
+					throw new LeagueError(`Puede haber hasta ${MAX_ACCESS_CODES} claves de ayudante.`);
+				}
+				return tx
+					.insert(accessCodes)
+					.values({ label: name, codeHash, createdAt: clock.now() })
+					.returning({ id: accessCodes.id })
+					.get().id;
+			});
+		},
+
+		/** Ends a helper's access: the code stops working and so do the sessions opened with it. */
+		revokeAccessCode(id: number): void {
+			db.delete(accessCodes).where(eq(accessCodes.id, id)).run();
+		},
+
+		/** The helper code with this hash, noting that it was just used, or null if there is none. */
+		useAccessCode(codeHash: string): AccessCode | null {
+			const found = db
+				.update(accessCodes)
+				.set({ lastUsedAt: clock.now() })
+				.where(eq(accessCodes.codeHash, codeHash))
+				.returning()
+				.get();
+			if (!found) return null;
+			return {
+				id: found.id,
+				label: found.label,
+				createdAt: found.createdAt,
+				lastUsedAt: found.lastUsedAt
+			};
+		},
+
+		/** The helper code with this id, or null once it has been revoked. */
+		getAccessCode(id: number): AccessCode | null {
+			const found = db.select().from(accessCodes).where(eq(accessCodes.id, id)).get();
+			if (!found) return null;
+			return {
+				id: found.id,
+				label: found.label,
+				createdAt: found.createdAt,
+				lastUsedAt: found.lastUsedAt
+			};
 		},
 
 		clearSchedule(): void {

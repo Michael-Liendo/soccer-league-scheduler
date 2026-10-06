@@ -79,7 +79,11 @@
 {:else}
 	<div class="two-columns list">
 		{#each league.teams as team (team.id)}
-			<TeamEditor {team} playersOnField={league.tournament.playersOnField} />
+			<TeamEditor
+				{team}
+				playersOnField={league.tournament.playersOnField}
+				canDelete={data.isOwner}
+			/>
 		{/each}
 	</div>
 {/if}

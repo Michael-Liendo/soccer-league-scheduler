@@ -9,6 +9,9 @@ export const load: LayoutServerLoad = ({ locals }) => {
 		today: todayIso(),
 		/** The server's clock, so match timers do not depend on each phone's own. */
 		now: Date.now(),
-		isAdmin: locals.isAdmin
+		isAdmin: locals.isAdmin,
+		/** The owner can do everything; helpers cannot delete or rebuild things. */
+		isOwner: locals.session?.role === 'owner',
+		sessionLabel: locals.session?.label ?? null
 	};
 };

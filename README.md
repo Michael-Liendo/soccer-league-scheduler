@@ -15,6 +15,9 @@ three-a-side cup played over four Saturdays in Naiguatá, Venezuela, so the inte
   what is on now and what comes next.
 - **Teams in seconds**: paste the teams (and their players) as text, or paste the list of people
   and let the app draw balanced teams, keeping the strongest players apart.
+- **Helpers**: the owner signs in with `ADMIN_CODE` and can create extra codes for people who
+  help on match day. A helper can load teams and run matches, but cannot delete teams, players or
+  results, rebuild the calendar or change settings. Revoking a code locks its sessions out at once.
 - **Planner**: given the teams, the match days and the daily timetable, it compares one to four
   round-robin legs, recommends the format that gives every team two to three matches per day
   without running past the end time, and spreads the matches so teams rest between games.

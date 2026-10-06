@@ -4,7 +4,7 @@ import { POSITIONS, type Position } from '#lib/league/types.ts';
 import { LeagueError } from '#lib/server/errors.ts';
 import { attempt, integer, text } from '#lib/server/forms.ts';
 import { league } from '#lib/server/league.ts';
-import { requireAdmin } from '#lib/server/session.ts';
+import { requireAdmin, requireOwner } from '#lib/server/session.ts';
 import type { Actions } from './$types';
 
 function readPlayer(form: FormData) {
@@ -100,6 +100,7 @@ export const actions: Actions = {
 		requireAdmin(locals);
 		const form = await request.formData();
 		return attempt(() => {
+			requireOwner(locals);
 			league().deleteTeam(integer(form, 'teamId'));
 			return { message: 'Equipo eliminado' };
 		});
@@ -128,6 +129,7 @@ export const actions: Actions = {
 		requireAdmin(locals);
 		const form = await request.formData();
 		return attempt(() => {
+			requireOwner(locals);
 			league().deletePlayer(integer(form, 'playerId'));
 			return { message: 'Jugador quitado de la plantilla' };
 		});

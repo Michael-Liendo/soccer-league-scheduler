@@ -36,9 +36,15 @@
 
 <div class="stack planner">
 	<!-- A fresh form after every save, so it always starts from what is stored. -->
-	{#key league.tournament.updatedAt}
-		<PlannerForm {league} />
-	{/key}
+	{#if data.isOwner}
+		{#key league.tournament.updatedAt}
+			<PlannerForm {league} />
+		{/key}
+	{:else}
+		<div class="notice">
+			<p>Solo el administrador puede cambiar los días, el horario o rehacer el calendario.</p>
+		</div>
+	{/if}
 
 	<section class="panel">
 		<div class="panel-head">

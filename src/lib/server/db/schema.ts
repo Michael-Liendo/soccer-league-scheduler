@@ -103,3 +103,20 @@ export const matchEvents = sqliteTable(
 	},
 	(table) => [index('match_events_match_idx').on(table.matchId)]
 );
+
+/**
+ * Extra codes handed out by the owner so helpers can run matches. Only a hash of each code is
+ * kept. Deleting a row ends that helper's access at once.
+ */
+export const accessCodes = sqliteTable(
+	'access_codes',
+	{
+		id: integer('id').primaryKey({ autoIncrement: true }),
+		/** Who the code was given to. */
+		label: text('label').notNull(),
+		codeHash: text('code_hash').notNull(),
+		createdAt: integer('created_at').notNull(),
+		lastUsedAt: integer('last_used_at')
+	},
+	(table) => [uniqueIndex('access_codes_hash_unique').on(table.codeHash)]
+);

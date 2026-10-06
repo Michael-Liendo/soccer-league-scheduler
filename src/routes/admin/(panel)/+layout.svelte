@@ -8,12 +8,13 @@
 
 	let { data, children }: LayoutProps = $props();
 
-	const tabs: TabItem[] = [
+	// Settings and access codes belong to the owner; helpers do not get that tab.
+	const tabs = $derived<TabItem[]>([
 		{ path: 'admin/equipos', label: 'Equipos' },
 		{ path: 'admin/calendario', label: 'Calendario' },
 		{ path: 'admin/partidos', label: 'Partidos' },
-		{ path: 'admin/configuracion', label: 'Configuración' }
-	];
+		...(data.isOwner ? [{ path: 'admin/configuracion', label: 'Configuración' } as TabItem] : [])
+	]);
 </script>
 
 <svelte:head>
@@ -23,7 +24,7 @@
 
 <Masthead
 	title={data.league.tournament.name}
-	kicker="Administración"
+	kicker={data.isOwner ? 'Administración' : `Ayudante · ${data.sessionLabel}`}
 	subtitle={leaguePhase(data.league, data.today)}
 >
 	{#snippet tools()}

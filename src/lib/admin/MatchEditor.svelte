@@ -19,9 +19,11 @@
 		league: League;
 		/** Current time in epoch milliseconds, ticking. */
 		now: number;
+		/** Only the owner may wipe the result of a match. */
+		canReset: boolean;
 	}
 
-	let { match, league, now }: Props = $props();
+	let { match, league, now, canReset }: Props = $props();
 
 	/** What is being recorded, while the player is being picked. */
 	let picking = $state<{ teamId: number; type: MatchEventType } | null>(null);
@@ -264,7 +266,7 @@
 			<button class="btn btn-sm">Guardar día y hora</button>
 		</div>
 	</form>
-	{#if hasResult}
+	{#if hasResult && canReset}
 		<div class="btn-row">
 			{#if confirmingReset}
 				<span class="warn">Se borran el marcador, el reloj, los goles y las tarjetas.</span>

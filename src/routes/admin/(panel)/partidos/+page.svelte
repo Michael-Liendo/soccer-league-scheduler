@@ -100,7 +100,7 @@
 >
 	{#if editing}
 		{#key editing.id}
-			<MatchEditor match={editing} {league} now={ticker.now} />
+			<MatchEditor match={editing} {league} now={ticker.now} canReset={data.isOwner} />
 		{/key}
 	{/if}
 	{#snippet footer()}

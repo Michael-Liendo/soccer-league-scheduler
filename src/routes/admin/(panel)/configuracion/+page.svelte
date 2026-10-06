@@ -2,6 +2,7 @@
 	import { enhance } from '$app/forms';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
+	import { formatDate, todayIso } from '#lib/league/format.ts';
 	import { LIMITS } from '#lib/league/types.ts';
 	import Dialog from '#lib/ui/Dialog.svelte';
 	import { withFeedback } from '#lib/ui/forms.ts';
@@ -11,9 +12,34 @@
 
 	let { data }: PageProps = $props();
 
-	let confirmingReset = $state(false);
+	interface NewCode {
+		label: string;
+		code: string;
+	}
 
 	const tournament = $derived(data.league.tournament);
+	let confirmingReset = $state(false);
+	/** The code that was just created. It is shown once and never again. */
+	let created = $state<NewCode | null>(null);
+
+	const dayOf = (timestamp: number) =>
+		formatDate(todayIso(undefined, new Date(timestamp)), 'short');
+	const codeMessage = $derived(
+		created
+			? `Hola ${created.label}, esta es tu clave para ayudar en ${tournament.name}: ${created.code}\nEntra en ${page.url.origin}/admin`
+			: ''
+	);
+
+	async function copyCode() {
+		if (!created) return;
+		try {
+			await navigator.clipboard.writeText(created.code);
+			toasts.show('Clave copiada');
+		} catch {
+			toasts.error('No se pudo copiar. Selecciona la clave y cópiala a mano.');
+		}
+	}
+
 	const publicUrl = $derived(`${page.url.origin}/`);
 	const whatsappUrl = $derived(
 		`https://wa.me/?text=${encodeURIComponent(`Tabla, partidos y goleadores de ${tournament.name}: ${publicUrl}`)}`
@@ -99,6 +125,54 @@
 
 	<div class="stack">
 		<section class="panel">
+			<h2 class="panel-title">Claves de ayudantes</h2>
+			<p class="help">
+				Dale una clave a quien te ayude a llevar los partidos. Con ella puede cargar equipos y
+				jugadores, iniciar partidos y anotar goles y tarjetas, pero no borrar equipos, jugadores ni
+				resultados, ni tocar el calendario o esta configuración.
+			</p>
+			{#if data.accessCodes.length > 0}
+				<ul class="codes">
+					{#each data.accessCodes as code (code.id)}
+						<li>
+							<span>
+								<strong>{code.label}</strong>
+								<small class="muted">
+									{code.lastUsedAt
+										? `Entró por última vez el ${dayOf(code.lastUsedAt)}`
+										: 'Aún no ha entrado'}
+								</small>
+							</span>
+							<form method="POST" action="?/revokeCode" use:enhance={withFeedback()}>
+								<input type="hidden" name="codeId" value={code.id} />
+								<button class="btn btn-sm btn-danger">Revocar</button>
+							</form>
+						</li>
+					{/each}
+				</ul>
+			{/if}
+			<form
+				class="new-code"
+				method="POST"
+				action="?/createCode"
+				use:enhance={withFeedback({
+					reset: true,
+					onSuccess: (result) => (created = (result?.newCode as NewCode | undefined) ?? null)
+				})}
+			>
+				<input
+					class="input"
+					name="label"
+					maxlength={LIMITS.playerName}
+					required
+					placeholder="¿Para quién es? Ej. Pedro"
+					aria-label="Nombre de quien va a usar la clave"
+				/>
+				<button class="btn">Crear clave</button>
+			</form>
+		</section>
+
+		<section class="panel">
 			<h2 class="panel-title">Vista pública</h2>
 			<p class="help">
 				Quien abra este link ve la tabla, los partidos, las estadísticas y los equipos sin código y
@@ -150,6 +224,29 @@
 	</div>
 </div>
 
+<Dialog
+	bind:open={() => created !== null, (open) => !open && (created = null)}
+	title="Clave para {created?.label ?? ''}"
+>
+	{#if created}
+		<p class="code">{created.code}</p>
+		<p class="help">
+			Cópiala o envíala ahora: no se vuelve a mostrar. Si se pierde, revoca esta clave y crea otra.
+		</p>
+	{/if}
+	{#snippet footer()}
+		<button type="button" class="btn" onclick={copyCode}><Icon name="copy" /> Copiar clave</button>
+		<a
+			class="btn btn-primary"
+			href="https://wa.me/?text={encodeURIComponent(codeMessage)}"
+			target="_blank"
+			rel="noopener external"
+		>
+			Enviar por WhatsApp
+		</a>
+	{/snippet}
+</Dialog>
+
 <Dialog bind:open={confirmingReset} title="Reiniciar torneo">
 	<p>
 		Se borran todos los equipos, jugadores, partidos y resultados. Esta acción no se puede deshacer.
@@ -175,5 +272,44 @@
 
 	.short {
 		max-width: 120px;
+	}
+
+	.codes {
+		margin: 0;
+		padding: 0;
+		list-style: none;
+	}
+
+	.codes li {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 10px;
+		padding: 8px 0;
+		border-bottom: 1px solid var(--color-border);
+	}
+
+	.codes span {
+		display: flex;
+		flex-direction: column;
+		min-width: 0;
+	}
+
+	.new-code {
+		display: grid;
+		grid-template-columns: 1fr auto;
+		gap: 8px;
+	}
+
+	.code {
+		padding: 14px;
+		border-radius: var(--radius-m);
+		background: var(--color-bg);
+		font-family: var(--font-display);
+		font-weight: 700;
+		font-size: 1.9rem;
+		letter-spacing: 0.04em;
+		text-align: center;
+		user-select: all;
 	}
 </style>

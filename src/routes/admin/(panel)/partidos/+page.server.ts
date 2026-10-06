@@ -7,7 +7,7 @@ import {
 import { LeagueError } from '#lib/server/errors.ts';
 import { attempt, integer, text } from '#lib/server/forms.ts';
 import { league } from '#lib/server/league.ts';
-import { requireAdmin } from '#lib/server/session.ts';
+import { requireAdmin, requireOwner } from '#lib/server/session.ts';
 import type { Actions } from './$types';
 
 const STATUS_MESSAGES: Record<MatchStatus, string> = {
@@ -141,6 +141,7 @@ export const actions: Actions = {
 		requireAdmin(locals);
 		const form = await request.formData();
 		return attempt(() => {
+			requireOwner(locals);
 			league().resetMatch(integer(form, 'matchId'));
 			return { message: 'Resultado borrado' };
 		});
