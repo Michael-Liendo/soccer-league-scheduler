@@ -1,9 +1,10 @@
-import type { Cookies } from '@sveltejs/kit';
+import { redirect, type Cookies } from '@sveltejs/kit';
 import { ADMIN_CODE } from '$app/env/private';
 import {
 	createSessionToken,
 	isCorrectCode,
 	isValidSessionToken,
+	LOGIN_PATH,
 	SESSION_COOKIE,
 	SESSION_MAX_AGE_SECONDS
 } from './auth.ts';
@@ -19,6 +20,15 @@ export function isAdminPanelEnabled(): boolean {
 export function hasAdminSession(cookies: Cookies): boolean {
 	if (ADMIN_CODE === undefined) return false;
 	return isValidSessionToken(ADMIN_CODE, cookies.get(SESSION_COOKIE));
+}
+
+/**
+ * Sends anyone without an admin session to the login page. The server hook already does this
+ * for every admin route; calling it again where data is changed or exported means a mistake in
+ * one place cannot open the panel on its own.
+ */
+export function requireAdmin(locals: App.Locals): void {
+	if (!locals.isAdmin) redirect(303, LOGIN_PATH);
 }
 
 export type LoginResult = 'ok' | 'wrong-code' | 'locked' | 'disabled';

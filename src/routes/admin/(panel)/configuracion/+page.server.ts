@@ -1,9 +1,11 @@
 import { attempt, integer, text } from '#lib/server/forms.ts';
 import { league } from '#lib/server/league.ts';
+import { requireAdmin } from '#lib/server/session.ts';
 import type { Actions } from './$types';
 
 export const actions: Actions = {
-	saveSettings: async ({ request }) => {
+	saveSettings: async ({ request, locals }) => {
+		requireAdmin(locals);
 		const form = await request.formData();
 		return attempt(() => {
 			league().updateSettings({
@@ -16,7 +18,8 @@ export const actions: Actions = {
 		});
 	},
 
-	reset: async () => {
+	reset: async ({ locals }) => {
+		requireAdmin(locals);
 		return attempt(() => {
 			league().resetTournament();
 			return { message: 'Torneo reiniciado' };

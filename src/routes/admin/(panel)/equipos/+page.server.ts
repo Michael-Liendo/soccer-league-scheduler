@@ -1,6 +1,7 @@
 import { POSITIONS, type Position } from '#lib/league/types.ts';
 import { attempt, integer, text } from '#lib/server/forms.ts';
 import { league } from '#lib/server/league.ts';
+import { requireAdmin } from '#lib/server/session.ts';
 import type { Actions } from './$types';
 
 function readPlayer(form: FormData) {
@@ -17,7 +18,8 @@ function readTeam(form: FormData) {
 }
 
 export const actions: Actions = {
-	createTeam: async ({ request }) => {
+	createTeam: async ({ request, locals }) => {
+		requireAdmin(locals);
 		const form = await request.formData();
 		return attempt(() => {
 			const team = readTeam(form);
@@ -26,7 +28,8 @@ export const actions: Actions = {
 		});
 	},
 
-	updateTeam: async ({ request }) => {
+	updateTeam: async ({ request, locals }) => {
+		requireAdmin(locals);
 		const form = await request.formData();
 		return attempt(() => {
 			league().updateTeam(integer(form, 'teamId'), readTeam(form));
@@ -34,7 +37,8 @@ export const actions: Actions = {
 		});
 	},
 
-	deleteTeam: async ({ request }) => {
+	deleteTeam: async ({ request, locals }) => {
+		requireAdmin(locals);
 		const form = await request.formData();
 		return attempt(() => {
 			league().deleteTeam(integer(form, 'teamId'));
@@ -42,7 +46,8 @@ export const actions: Actions = {
 		});
 	},
 
-	addPlayer: async ({ request }) => {
+	addPlayer: async ({ request, locals }) => {
+		requireAdmin(locals);
 		const form = await request.formData();
 		return attempt(() => {
 			const player = readPlayer(form);
@@ -51,7 +56,8 @@ export const actions: Actions = {
 		});
 	},
 
-	updatePlayer: async ({ request }) => {
+	updatePlayer: async ({ request, locals }) => {
+		requireAdmin(locals);
 		const form = await request.formData();
 		return attempt(() => {
 			league().updatePlayer(integer(form, 'playerId'), readPlayer(form));
@@ -59,7 +65,8 @@ export const actions: Actions = {
 		});
 	},
 
-	deletePlayer: async ({ request }) => {
+	deletePlayer: async ({ request, locals }) => {
+		requireAdmin(locals);
 		const form = await request.formData();
 		return attempt(() => {
 			league().deletePlayer(integer(form, 'playerId'));

@@ -2,6 +2,21 @@ import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
 
 export const SESSION_COOKIE = 'admin_session';
 export const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 30;
+export const LOGIN_PATH = '/admin/login';
+
+/**
+ * Whether a route may only be used with an admin session: everything under `/admin` except the
+ * login page.
+ *
+ * It takes the id of the route the router matched, never the URL. The same route can be spelled
+ * in many ways in a URL (`/%61dmin/equipos` reaches `/admin/equipos`), so a check on the raw
+ * path can be walked around; the route id is what will actually run.
+ */
+export function requiresAdminSession(routeId: string | null): boolean {
+	if (routeId === null) return false;
+	const isAdminRoute = routeId === '/admin' || routeId.startsWith('/admin/');
+	return isAdminRoute && routeId !== LOGIN_PATH;
+}
 
 function digest(value: string): Buffer {
 	return createHash('sha256').update(value).digest();

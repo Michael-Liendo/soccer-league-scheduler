@@ -10,7 +10,7 @@ const MESSAGES: Record<Exclude<LoginResult, 'ok'>, string> = {
 };
 
 export const load: PageServerLoad = ({ locals }) => {
-	if (locals.isAdmin) redirect(303, '/admin');
+	if (locals.isAdmin) redirect(303, '/admin/equipos');
 	return { enabled: isAdminPanelEnabled() };
 };
 
@@ -26,7 +26,7 @@ export const actions: Actions = {
 		}
 
 		const result = logIn(event.cookies, event.url, clientKey, text(form, 'code'));
-		if (result === 'ok') redirect(303, '/admin');
+		if (result === 'ok') redirect(303, '/admin/equipos');
 		return fail(result === 'locked' ? 429 : 400, { error: MESSAGES[result] });
 	}
 };

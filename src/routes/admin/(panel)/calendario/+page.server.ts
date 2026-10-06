@@ -1,6 +1,7 @@
 import { plural } from '#lib/league/format.ts';
 import { attempt, integer, text, texts, toInteger } from '#lib/server/forms.ts';
 import { league } from '#lib/server/league.ts';
+import { requireAdmin } from '#lib/server/session.ts';
 import type { PlanInput } from '#lib/server/league-store.ts';
 import type { Actions } from './$types';
 
@@ -34,7 +35,8 @@ function readPlanner(form: FormData): { plan: PlanInput; matchesPerDay: number[]
 }
 
 export const actions: Actions = {
-	savePlan: async ({ request }) => {
+	savePlan: async ({ request, locals }) => {
+		requireAdmin(locals);
 		const form = await request.formData();
 		return attempt(() => {
 			const { retimed } = league().savePlan(readPlanner(form).plan);
@@ -46,7 +48,8 @@ export const actions: Actions = {
 		});
 	},
 
-	generate: async ({ request }) => {
+	generate: async ({ request, locals }) => {
+		requireAdmin(locals);
 		const form = await request.formData();
 		return attempt(() => {
 			const random = text(form, 'draw') === 'random';
@@ -60,7 +63,8 @@ export const actions: Actions = {
 		});
 	},
 
-	clear: async () => {
+	clear: async ({ locals }) => {
+		requireAdmin(locals);
 		return attempt(() => {
 			league().clearSchedule();
 			return { message: 'Calendario borrado' };

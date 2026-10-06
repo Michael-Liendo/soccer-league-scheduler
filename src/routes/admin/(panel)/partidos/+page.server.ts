@@ -7,6 +7,7 @@ import {
 import { LeagueError } from '#lib/server/errors.ts';
 import { attempt, integer, text } from '#lib/server/forms.ts';
 import { league } from '#lib/server/league.ts';
+import { requireAdmin } from '#lib/server/session.ts';
 import type { Actions } from './$types';
 
 const STATUS_MESSAGES: Record<MatchStatus, string> = {
@@ -27,7 +28,8 @@ function oneOf<T extends string>(options: readonly T[], value: string, label: st
 }
 
 export const actions: Actions = {
-	reschedule: async ({ request }) => {
+	reschedule: async ({ request, locals }) => {
+		requireAdmin(locals);
 		const form = await request.formData();
 		return attempt(() => {
 			league().updateMatchSchedule(integer(form, 'matchId'), {
@@ -39,7 +41,8 @@ export const actions: Actions = {
 		});
 	},
 
-	status: async ({ request }) => {
+	status: async ({ request, locals }) => {
+		requireAdmin(locals);
 		const form = await request.formData();
 		return attempt(() => {
 			const status = oneOf(MATCH_STATUSES, text(form, 'status'), 'Estado');
@@ -48,7 +51,8 @@ export const actions: Actions = {
 		});
 	},
 
-	score: async ({ request }) => {
+	score: async ({ request, locals }) => {
+		requireAdmin(locals);
 		const form = await request.formData();
 		return attempt(() => {
 			const side = oneOf(['home', 'away'] as const, text(form, 'side'), 'Equipo');
@@ -57,7 +61,8 @@ export const actions: Actions = {
 		});
 	},
 
-	addEvent: async ({ request }) => {
+	addEvent: async ({ request, locals }) => {
+		requireAdmin(locals);
 		const form = await request.formData();
 		return attempt(() => {
 			const type = oneOf(MATCH_EVENT_TYPES, text(form, 'type'), 'Evento');
@@ -72,7 +77,8 @@ export const actions: Actions = {
 		});
 	},
 
-	removeEvent: async ({ request }) => {
+	removeEvent: async ({ request, locals }) => {
+		requireAdmin(locals);
 		const form = await request.formData();
 		return attempt(() => {
 			league().removeMatchEvent(integer(form, 'eventId'));
@@ -80,7 +86,8 @@ export const actions: Actions = {
 		});
 	},
 
-	resetMatch: async ({ request }) => {
+	resetMatch: async ({ request, locals }) => {
+		requireAdmin(locals);
 		const form = await request.formData();
 		return attempt(() => {
 			league().resetMatch(integer(form, 'matchId'));

@@ -3,12 +3,35 @@ import {
 	createSessionToken,
 	isCorrectCode,
 	isValidSessionToken,
+	requiresAdminSession,
 	SESSION_MAX_AGE_SECONDS
 } from './auth.ts';
 import { createRateLimiter } from './rate-limit.ts';
 
 const CODE = 'copa-naiguata-2026';
 const NOW = 1_800_000_000_000;
+
+describe('routes that need a session', () => {
+	it('protects everything under /admin', () => {
+		expect(requiresAdminSession('/admin')).toBe(true);
+		expect(requiresAdminSession('/admin/(panel)/equipos')).toBe(true);
+		expect(requiresAdminSession('/admin/(panel)/configuracion')).toBe(true);
+		expect(requiresAdminSession('/admin/respaldo')).toBe(true);
+		expect(requiresAdminSession('/admin/logout')).toBe(true);
+	});
+
+	it('leaves the login page and the public site open', () => {
+		expect(requiresAdminSession('/admin/login')).toBe(false);
+		expect(requiresAdminSession('/(public)')).toBe(false);
+		expect(requiresAdminSession('/(public)/partidos')).toBe(false);
+		expect(requiresAdminSession('/health')).toBe(false);
+		expect(requiresAdminSession('/administracion')).toBe(false);
+	});
+
+	it('has nothing to protect when no route matched', () => {
+		expect(requiresAdminSession(null)).toBe(false);
+	});
+});
 
 describe('admin code', () => {
 	it('accepts the exact code, ignoring surrounding spaces', () => {

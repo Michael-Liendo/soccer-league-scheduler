@@ -1,5 +1,6 @@
 import { todayIso } from '#lib/league/format.ts';
 import { league } from '#lib/server/league.ts';
+import { requireAdmin } from '#lib/server/session.ts';
 import type { RequestHandler } from './$types';
 
 function slug(text: string): string {
@@ -14,7 +15,8 @@ function slug(text: string): string {
 }
 
 /** Downloads everything the league holds as a JSON file, to keep a copy outside the server. */
-export const GET: RequestHandler = () => {
+export const GET: RequestHandler = ({ locals }) => {
+	requireAdmin(locals);
 	const snapshot = league().getLeague();
 	const filename = `respaldo-${slug(snapshot.tournament.name)}-${todayIso()}.json`;
 	const body = JSON.stringify(
