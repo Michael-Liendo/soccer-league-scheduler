@@ -1,5 +1,13 @@
 /** League table and statistics, derived from the matches and the events recorded in them. */
-import type { League, Match, Position, Team } from './types.ts';
+import {
+	CARD_COUNTERS,
+	goalValue,
+	isCard,
+	type League,
+	type Match,
+	type Position,
+	type Team
+} from './types.ts';
 
 export type FormResult = 'W' | 'D' | 'L';
 
@@ -25,16 +33,19 @@ export interface PlayerStat {
 	name: string;
 	number: string | null;
 	position: Position | null;
+	/** Goals scored, counting two for each double goal. */
 	goals: number;
 	yellows: number;
+	blues: number;
 	reds: number;
 }
 
 export interface FairPlayRow {
 	teamId: number;
 	yellows: number;
+	blues: number;
 	reds: number;
-	/** One point per yellow card and three per red. Fewer is better. */
+	/** One point per yellow card, two per blue and three per red. Fewer is better. */
 	points: number;
 }
 
@@ -47,7 +58,7 @@ export interface DefenseRow {
 	cleanSheets: number;
 }
 
-export const FAIR_PLAY_POINTS = { yellow: 1, red: 3 } as const;
+export const FAIR_PLAY_POINTS = { yellow: 1, blue: 2, red: 3 } as const;
 
 type Scoring = Pick<League['tournament'], 'pointsWin' | 'pointsDraw' | 'pointsLoss'>;
 
@@ -57,14 +68,13 @@ function finished(matches: readonly Match[]): Match[] {
 
 export function fairPlayTable(teams: readonly Team[], matches: readonly Match[]): FairPlayRow[] {
 	const rows = new Map<number, FairPlayRow>(
-		teams.map((team) => [team.id, { teamId: team.id, yellows: 0, reds: 0, points: 0 }])
+		teams.map((team) => [team.id, { teamId: team.id, yellows: 0, blues: 0, reds: 0, points: 0 }])
 	);
 	for (const match of matches) {
 		for (const event of match.events) {
 			const row = rows.get(event.teamId);
-			if (!row || (event.type !== 'yellow' && event.type !== 'red')) continue;
-			if (event.type === 'yellow') row.yellows += 1;
-			else row.reds += 1;
+			if (!row || !isCard(event.type)) continue;
+			row[CARD_COUNTERS[event.type]] += 1;
 			row.points += FAIR_PLAY_POINTS[event.type];
 		}
 	}
@@ -73,6 +83,7 @@ export function fairPlayTable(teams: readonly Team[], matches: readonly Match[])
 		(a, b) =>
 			a.points - b.points ||
 			a.reds - b.reds ||
+			a.blues - b.blues ||
 			(names.get(a.teamId) ?? '').localeCompare(names.get(b.teamId) ?? '', 'es')
 	);
 }
@@ -173,13 +184,13 @@ export function computePlayerStats(
 					position: player?.position ?? null,
 					goals: 0,
 					yellows: 0,
+					blues: 0,
 					reds: 0
 				};
 				stats.set(key, stat);
 			}
-			if (event.type === 'goal') stat.goals += 1;
-			else if (event.type === 'yellow') stat.yellows += 1;
-			else stat.reds += 1;
+			if (isCard(event.type)) stat[CARD_COUNTERS[event.type]] += 1;
+			else stat.goals += goalValue(event.type);
 		}
 	}
 	return [...stats.values()];
@@ -194,9 +205,11 @@ export function topScorers(stats: readonly PlayerStat[]): PlayerStat[] {
 /** Players with cards, the most penalised first. */
 export function cardedPlayers(stats: readonly PlayerStat[]): PlayerStat[] {
 	const weight = (stat: PlayerStat) =>
-		stat.reds * FAIR_PLAY_POINTS.red + stat.yellows * FAIR_PLAY_POINTS.yellow;
+		stat.reds * FAIR_PLAY_POINTS.red +
+		stat.blues * FAIR_PLAY_POINTS.blue +
+		stat.yellows * FAIR_PLAY_POINTS.yellow;
 	return stats
-		.filter((stat) => stat.yellows > 0 || stat.reds > 0)
+		.filter((stat) => weight(stat) > 0)
 		.sort((a, b) => weight(b) - weight(a) || a.name.localeCompare(b.name, 'es'));
 }
 

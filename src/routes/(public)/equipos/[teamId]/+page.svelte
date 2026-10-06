@@ -146,6 +146,7 @@
 								<th>Jugador</th>
 								<th class="num">Goles</th>
 								<th class="num"><span class="card yellow" title="Amarillas"></span></th>
+								<th class="num"><span class="card blue" title="Azules"></span></th>
 								<th class="num"><span class="card red" title="Rojas"></span></th>
 							</tr>
 						</thead>
@@ -166,6 +167,7 @@
 									</td>
 									<td class="num">{stat?.goals || '–'}</td>
 									<td class="num">{stat?.yellows || '–'}</td>
+									<td class="num">{stat?.blues || '–'}</td>
 									<td class="num">{stat?.reds || '–'}</td>
 								</tr>
 							{/each}
@@ -318,6 +320,10 @@
 
 	.card.yellow {
 		background: var(--color-yellow-card);
+	}
+
+	.card.blue {
+		background: var(--color-blue-card);
 	}
 
 	.card.red {

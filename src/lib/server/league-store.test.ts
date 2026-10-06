@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { openDatabase } from './db/client.ts';
 import { LeagueError } from './errors.ts';
+import { computeStandings } from '#lib/league/standings.ts';
 import { createLeagueStore, type Clock, type LeagueStore } from './league-store.ts';
 
 const MONDAY_BEFORE_THE_CUP = '2026-10-05';
@@ -436,6 +437,31 @@ describe('recording results', () => {
 		expect(theMatch().events).toHaveLength(1);
 	});
 
+	it('counts a double goal as two, and takes both off when it is deleted', () => {
+		const { homeId, scorer, matchId } = kickOff();
+		store.addMatchEvent(matchId, { teamId: homeId, playerId: scorer, type: 'goal' });
+		const double = store.addMatchEvent(matchId, {
+			teamId: homeId,
+			playerId: scorer,
+			type: 'double_goal'
+		});
+		expect(theMatch()).toMatchObject({ homeScore: 3, awayScore: 0 });
+		expect(theMatch().events.map((event) => event.type)).toEqual(['goal', 'double_goal']);
+
+		store.removeMatchEvent(double);
+		expect(theMatch()).toMatchObject({ homeScore: 1 });
+	});
+
+	it('shows a blue card to a player, never to nobody', () => {
+		const { awayId, keeper, matchId } = kickOff();
+		store.addMatchEvent(matchId, { teamId: awayId, playerId: keeper, type: 'blue' });
+		expect(theMatch()).toMatchObject({ homeScore: 0, awayScore: 0 });
+		expect(theMatch().events).toMatchObject([{ playerId: keeper, type: 'blue' }]);
+		expect(() =>
+			store.addMatchEvent(matchId, { teamId: awayId, playerId: null, type: 'blue' })
+		).toThrow(/a quién se le mostró/);
+	});
+
 	it('counts an own goal for the team, with no scorer', () => {
 		const { homeId, keeper, matchId } = kickOff();
 		store.addMatchEvent(matchId, { teamId: homeId, playerId: keeper, type: 'own_goal' });
@@ -477,6 +503,58 @@ describe('recording results', () => {
 		store.resetMatch(matchId);
 
 		expect(theMatch()).toMatchObject({ status: 'pending', homeScore: 0, awayScore: 0, events: [] });
+	});
+
+	it('awards a match five-nil to the rival of the team that did not show up', () => {
+		const { matchId } = kickOff();
+		store.forfeitMatch(matchId, 'home');
+		expect(theMatch()).toMatchObject({
+			status: 'finished',
+			homeScore: 0,
+			awayScore: 5,
+			forfeitedBy: 'home',
+			clockStartedAt: null,
+			clockElapsedMs: 0,
+			events: []
+		});
+	});
+
+	it('does not let a forfeited match be played until its result is cleared', () => {
+		const { homeId, scorer, matchId } = kickOff();
+		store.forfeitMatch(matchId, 'away');
+		expect(theMatch()).toMatchObject({ homeScore: 5, awayScore: 0, forfeitedBy: 'away' });
+
+		const byWalkover = /se dio por W\.O\./;
+		expect(() => store.startMatch(matchId)).toThrow(byWalkover);
+		expect(() => store.setMatchStatus(matchId, 'pending')).toThrow(byWalkover);
+		expect(() => store.forfeitMatch(matchId, 'home')).toThrow(byWalkover);
+		expect(() =>
+			store.addMatchEvent(matchId, { teamId: homeId, playerId: scorer, type: 'goal' })
+		).toThrow(byWalkover);
+		expect(theMatch()).toMatchObject({ homeScore: 5, awayScore: 0, events: [] });
+
+		store.resetMatch(matchId);
+		expect(theMatch()).toMatchObject({ status: 'pending', homeScore: 0, forfeitedBy: null });
+		store.addMatchEvent(matchId, { teamId: homeId, playerId: scorer, type: 'goal' });
+		expect(theMatch()).toMatchObject({ status: 'live', homeScore: 1 });
+	});
+
+	it('refuses a walkover once the match has goals or cards', () => {
+		const { homeId, scorer, matchId } = kickOff();
+		store.addMatchEvent(matchId, { teamId: homeId, playerId: scorer, type: 'goal' });
+		expect(() => store.forfeitMatch(matchId, 'away')).toThrow(/ya tiene goles o tarjetas/);
+		expect(theMatch()).toMatchObject({ homeScore: 1, forfeitedBy: null });
+	});
+
+	it('gives the points of a walkover to the team that showed up', () => {
+		const { homeId, awayId, matchId } = kickOff();
+		store.forfeitMatch(matchId, 'home');
+		const league = store.getLeague();
+		const table = computeStandings(league.teams, league.matches, league.tournament);
+		expect(table.map((row) => [row.teamId, row.points, row.goalDifference])).toEqual([
+			[awayId, 3, 5],
+			[homeId, 0, -5]
+		]);
 	});
 
 	it('marks the league as updated on every change', () => {

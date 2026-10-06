@@ -1,6 +1,8 @@
 import {
+	FORFEIT_GOALS,
 	MATCH_EVENT_TYPES,
 	MATCH_STATUSES,
+	SIDES,
 	type MatchEventType,
 	type MatchStatus
 } from '#lib/league/types.ts';
@@ -18,8 +20,10 @@ const STATUS_MESSAGES: Record<MatchStatus, string> = {
 
 const EVENT_MESSAGES: Record<MatchEventType, (player: string) => string> = {
 	goal: (player) => (player ? `Gol de ${player}` : 'Gol anotado'),
+	double_goal: (player) => (player ? `Gol doble de ${player}` : 'Gol doble anotado'),
 	own_goal: () => 'Autogol anotado',
 	yellow: (player) => `Amarilla para ${player}`,
+	blue: (player) => `Azul para ${player}`,
 	red: (player) => `Roja para ${player}`
 };
 
@@ -78,6 +82,17 @@ export const actions: Actions = {
 				finish: 'Partido finalizado'
 			};
 			return { message: messages[step] };
+		});
+	},
+
+	/** A team did not show up: its rival wins without playing. */
+	forfeit: async ({ request, locals }) => {
+		requireAdmin(locals);
+		const form = await request.formData();
+		return attempt(() => {
+			const absent = oneOf(SIDES, text(form, 'absent'), 'Equipo');
+			league().forfeitMatch(integer(form, 'matchId'), absent);
+			return { message: `Partido cerrado por W.O.: ${FORFEIT_GOALS}–0` };
 		});
 	},
 

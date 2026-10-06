@@ -81,6 +81,7 @@
 						<th>Jugador</th>
 						<th>Equipo</th>
 						<th class="num"><span class="card yellow" title="Amarillas"></span></th>
+						<th class="num"><span class="card blue" title="Azules"></span></th>
 						<th class="num"><span class="card red" title="Rojas"></span></th>
 					</tr>
 				</thead>
@@ -90,10 +91,11 @@
 							<td>{@render playerCell(stat)}</td>
 							<td class="muted">{teams.get(stat.teamId)?.name}</td>
 							<td class="num">{stat.yellows}</td>
+							<td class="num">{stat.blues}</td>
 							<td class="num">{stat.reds}</td>
 						</tr>
 					{:else}
-						<tr><td colspan="4" class="none">Todavía no hay tarjetas.</td></tr>
+						<tr><td colspan="5" class="none">Todavía no hay tarjetas.</td></tr>
 					{/each}
 				</tbody>
 			</table>
@@ -143,7 +145,7 @@
 		<div class="panel-head">
 			<div>
 				<h2 class="panel-title">Juego limpio</h2>
-				<p class="help">La amarilla suma 1 punto y la roja 3. Gana quien tenga menos.</p>
+				<p class="help">La amarilla suma 1 punto, la azul 2 y la roja 3. Gana quien tenga menos.</p>
 			</div>
 		</div>
 		<div class="table-scroll">
@@ -153,6 +155,7 @@
 						<th>#</th>
 						<th>Equipo</th>
 						<th class="num"><span class="card yellow" title="Amarillas"></span></th>
+						<th class="num"><span class="card blue" title="Azules"></span></th>
 						<th class="num"><span class="card red" title="Rojas"></span></th>
 						<th class="num">Pts</th>
 					</tr>
@@ -163,11 +166,12 @@
 							<td class="rank">{index + 1}</td>
 							<td>{@render teamCell(row.teamId)}</td>
 							<td class="num">{row.yellows}</td>
+							<td class="num">{row.blues}</td>
 							<td class="num">{row.reds}</td>
 							<td class="num big">{row.points}</td>
 						</tr>
 					{:else}
-						<tr><td colspan="5" class="none">Todavía no hay equipos.</td></tr>
+						<tr><td colspan="6" class="none">Todavía no hay equipos.</td></tr>
 					{/each}
 				</tbody>
 			</table>
@@ -227,6 +231,10 @@
 
 	.card.yellow {
 		background: var(--color-yellow-card);
+	}
+
+	.card.blue {
+		background: var(--color-blue-card);
 	}
 
 	.card.red {

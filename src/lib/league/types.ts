@@ -5,15 +5,41 @@ export const MATCH_STATUSES = ['pending', 'live', 'finished'] as const;
 export type MatchStatus = (typeof MATCH_STATUSES)[number];
 
 /**
+ * `double_goal` is a goal worth two, for leagues where a strike from long range counts double.
  * `own_goal` is a goal put in by the other side: it counts for the team it is recorded under,
- * and for no scorer.
+ * and for no scorer. `blue` is the card that sends a player off for a couple of minutes.
  */
-export const MATCH_EVENT_TYPES = ['goal', 'own_goal', 'yellow', 'red'] as const;
+export const MATCH_EVENT_TYPES = [
+	'goal',
+	'double_goal',
+	'own_goal',
+	'yellow',
+	'blue',
+	'red'
+] as const;
 export type MatchEventType = (typeof MATCH_EVENT_TYPES)[number];
 
-export function countsAsGoal(type: MatchEventType): boolean {
-	return type === 'goal' || type === 'own_goal';
+/** How many goals an event puts on the scoreboard: none for a card. */
+export function goalValue(type: MatchEventType): number {
+	if (type === 'double_goal') return 2;
+	return type === 'goal' || type === 'own_goal' ? 1 : 0;
 }
+
+export const CARD_TYPES = ['yellow', 'blue', 'red'] as const;
+export type CardType = (typeof CARD_TYPES)[number];
+
+export function isCard(type: MatchEventType): type is CardType {
+	return (CARD_TYPES as readonly string[]).includes(type);
+}
+
+/** The counter each card adds to in the tallies kept per team and per player. */
+export const CARD_COUNTERS = { yellow: 'yellows', blue: 'blues', red: 'reds' } as const;
+
+export const SIDES = ['home', 'away'] as const;
+export type Side = (typeof SIDES)[number];
+
+/** Goals awarded to the team that showed up when its rival forfeits the match. */
+export const FORFEIT_GOALS = 5;
 
 export interface Player {
 	id: number;
@@ -71,6 +97,8 @@ export interface Match {
 	clockStartedAt: number | null;
 	/** Playing time, in milliseconds, accumulated before the clock was last started. */
 	clockElapsedMs: number;
+	/** The side that did not show up, when the match was awarded to its rival without playing. */
+	forfeitedBy: Side | null;
 	events: MatchEvent[];
 }
 

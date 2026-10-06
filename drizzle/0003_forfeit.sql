@@ -1,0 +1,1 @@
+ALTER TABLE `matches` ADD `forfeited_by` text;

@@ -1,7 +1,16 @@
 /** Helpers that shape league data for the screens. All pure, so they run the same on both sides. */
 import { capitalize, formatDate, formatDateRange } from './format.ts';
 import { champion } from './standings.ts';
-import type { League, Match, MatchDay, Player, Team } from './types.ts';
+import {
+	CARD_COUNTERS,
+	goalValue,
+	isCard,
+	type League,
+	type Match,
+	type MatchDay,
+	type Player,
+	type Team
+} from './types.ts';
 
 export function teamsById(teams: readonly Team[]): Map<number, Team> {
 	return new Map(teams.map((team) => [team.id, team]));
@@ -93,10 +102,14 @@ export function venueOf(match: Match, league: League): string {
 export interface PlayerEvents {
 	key: string;
 	name: string;
+	/** Goals scored, counting two for each double goal. */
 	goals: number;
-	/** Minutes of the goals that were timed, in order. */
-	goalMinutes: number[];
+	/** The goals that were timed, in order: "12'", or "12' ×2" for a double goal. */
+	goalTimes: string[];
+	/** How many of the goals `goalTimes` accounts for. */
+	timedGoals: number;
 	yellows: number;
+	blues: number;
 	reds: number;
 }
 
@@ -118,24 +131,38 @@ export function eventsByPlayer(match: Match, team: Team | undefined): PlayerEven
 			const name = isOwnGoal
 				? 'Autogol'
 				: (event.playerId !== null && names.get(event.playerId)) || event.playerName || 'Gol';
-			entry = { key, name, goals: 0, goalMinutes: [], yellows: 0, reds: 0 };
+			entry = {
+				key,
+				name,
+				goals: 0,
+				goalTimes: [],
+				timedGoals: 0,
+				yellows: 0,
+				blues: 0,
+				reds: 0
+			};
 			summary.set(key, entry);
 		}
-		if (event.type === 'goal' || isOwnGoal) {
-			entry.goals += 1;
-			if (event.minute !== null) entry.goalMinutes.push(event.minute);
-		} else if (event.type === 'yellow') entry.yellows += 1;
-		else entry.reds += 1;
+		if (isCard(event.type)) {
+			entry[CARD_COUNTERS[event.type]] += 1;
+			continue;
+		}
+		const goals = goalValue(event.type);
+		entry.goals += goals;
+		if (event.minute !== null) {
+			entry.timedGoals += goals;
+			entry.goalTimes.push(goals > 1 ? `${event.minute}' ×${goals}` : `${event.minute}'`);
+		}
 	}
 	return [...summary.values()];
 }
 
-/** "5', 12'" when every goal was timed, "×2" when not, and nothing for a single untimed goal. */
+/**
+ * "5', 12' ×2" when every goal was timed, "×3" when not, and nothing for a single untimed goal.
+ */
 export function goalsLabel(player: PlayerEvents): string {
 	if (player.goals === 0) return '';
-	if (player.goalMinutes.length === player.goals) {
-		return player.goalMinutes.map((minute) => `${minute}'`).join(', ');
-	}
+	if (player.timedGoals === player.goals) return player.goalTimes.join(', ');
 	return player.goals > 1 ? `×${player.goals}` : '';
 }
 

@@ -31,6 +31,7 @@
 	--color-loss: #c2182c;
 	--color-live: var(--color-flag-red);
 	--color-yellow-card: #f2c200;
+	--color-blue-card: #2f7bf5;
 	--color-red-card: var(--color-flag-red);
 
 	--color-board: #0b2a80;

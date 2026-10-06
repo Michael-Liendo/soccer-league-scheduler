@@ -22,6 +22,13 @@
       "when": 1791253580248,
       "tag": "0002_access_codes",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1791312270997,
+      "tag": "0003_forfeit",
+      "breakpoints": true
     }
   ]
 }

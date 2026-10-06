@@ -72,6 +72,7 @@ function match(
 		awayScore: score?.[1] ?? 0,
 		clockStartedAt: null,
 		clockElapsedMs: 0,
+		forfeitedBy: null,
 		events
 	};
 }
@@ -188,6 +189,14 @@ describe('player statistics', () => {
 		expect(withOwnGoal[0]).toMatchObject({ playerId: 11, goals: 1 });
 	});
 
+	it('credits a double goal as two goals for its scorer', () => {
+		const withDouble = computePlayerStats(teams, [
+			match(1, 2, [3, 0], [event(1, 11, 'double_goal'), event(1, 11, 'goal')])
+		]);
+		expect(withDouble).toHaveLength(1);
+		expect(withDouble[0]).toMatchObject({ playerId: 11, goals: 3 });
+	});
+
 	it('ranks scorers by goals', () => {
 		expect(topScorers(stats).map((stat) => [stat.name, stat.goals])).toEqual([
 			['Luis', 3],
@@ -197,6 +206,19 @@ describe('player statistics', () => {
 
 	it('lists carded players with reds weighing more than yellows', () => {
 		expect(cardedPlayers(stats).map((stat) => stat.name)).toEqual(['Carlos', 'Invitado', 'Pedro']);
+	});
+
+	it('weighs a blue card between a yellow and a red', () => {
+		const carded = cardedPlayers(
+			computePlayerStats(teams, [
+				match(1, 2, [0, 0], [event(1, 11, 'yellow'), event(2, 21, 'blue'), event(1, 12, 'red')])
+			])
+		);
+		expect(carded.map((stat) => [stat.name, stat.yellows, stat.blues, stat.reds])).toEqual([
+			['Carlos', 0, 0, 1],
+			['Pedro', 0, 1, 0],
+			['Luis', 1, 0, 0]
+		]);
 	});
 });
 
@@ -209,9 +231,20 @@ describe('team statistics', () => {
 
 	it('scores fair play with one point per yellow and three per red', () => {
 		expect(fairPlayTable(teams, matches)).toEqual([
-			{ teamId: 3, yellows: 0, reds: 0, points: 0 },
-			{ teamId: 1, yellows: 1, reds: 0, points: 1 },
-			{ teamId: 2, yellows: 1, reds: 1, points: 4 }
+			{ teamId: 3, yellows: 0, blues: 0, reds: 0, points: 0 },
+			{ teamId: 1, yellows: 1, blues: 0, reds: 0, points: 1 },
+			{ teamId: 2, yellows: 1, blues: 0, reds: 1, points: 4 }
+		]);
+	});
+
+	it('scores two fair play points for a blue card', () => {
+		const table = fairPlayTable(teams, [
+			match(1, 2, [0, 0], [event(1, 11, 'blue'), event(1, 12, 'blue'), event(2, 21, 'yellow')])
+		]);
+		expect(table).toEqual([
+			{ teamId: 3, yellows: 0, blues: 0, reds: 0, points: 0 },
+			{ teamId: 2, yellows: 1, blues: 0, reds: 0, points: 1 },
+			{ teamId: 1, yellows: 0, blues: 2, reds: 0, points: 4 }
 		]);
 	});
 

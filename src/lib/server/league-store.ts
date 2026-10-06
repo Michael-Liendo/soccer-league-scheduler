@@ -11,11 +11,13 @@ import { elapsedMs, MAX_CLOCK_MS, minuteOfPlay } from '#lib/league/clock.ts';
 import { nextTeamColor } from '#lib/league/labels.ts';
 import { buildSchedule, slotTime, totalMatches, type PlanTiming } from '#lib/league/schedule.ts';
 import {
-	countsAsGoal,
+	FORFEIT_GOALS,
+	goalValue,
 	LIMITS,
 	MATCH_EVENT_TYPES,
 	MATCH_STATUSES,
 	POSITIONS,
+	SIDES,
 	type League,
 	type Match,
 	type MatchEvent,
@@ -23,6 +25,7 @@ import {
 	type MatchStatus,
 	type Player,
 	type Position,
+	type Side,
 	type Team,
 	type Tournament
 } from '#lib/league/types.ts';
@@ -306,6 +309,15 @@ export function createLeagueStore(db: Db, clock: Clock = systemClock) {
 		return match;
 	}
 
+	/** A match awarded without playing has no clock to run and no goals or cards to record. */
+	function requirePlayableMatch(executor: Executor, id: number) {
+		const match = requireMatch(executor, id);
+		if (match.forfeitedBy !== null) {
+			throw new LeagueError('Este partido se dio por W.O. Borra el resultado para poder jugarlo.');
+		}
+		return match;
+	}
+
 	/** The clock columns for a match whose clock stops now, keeping the time played so far. */
 	function stoppedClock(match: { clockStartedAt: number | null; clockElapsedMs: number }) {
 		return { clockStartedAt: null, clockElapsedMs: elapsedMs(match, clock.now()) };
@@ -471,6 +483,7 @@ export function createLeagueStore(db: Db, clock: Clock = systemClock) {
 					awayScore: row.awayScore,
 					clockStartedAt: row.clockStartedAt,
 					clockElapsedMs: row.clockElapsedMs,
+					forfeitedBy: isOneOf(SIDES, row.forfeitedBy) ? row.forfeitedBy : null,
 					events: eventsByMatch.get(row.id) ?? []
 				}))
 				.sort(
@@ -761,7 +774,7 @@ export function createLeagueStore(db: Db, clock: Clock = systemClock) {
 		setMatchStatus(id: number, status: MatchStatus): void {
 			if (!isOneOf(MATCH_STATUSES, status)) throw new LeagueError('Ese estado no es válido.');
 			db.transaction((tx) => {
-				const match = requireMatch(tx, id);
+				const match = requirePlayableMatch(tx, id);
 				tx.update(matches)
 					.set({
 						status,
@@ -778,7 +791,7 @@ export function createLeagueStore(db: Db, clock: Clock = systemClock) {
 		/** Kicks off or resumes a match: it becomes live and its clock runs. */
 		startMatch(id: number): void {
 			db.transaction((tx) => {
-				const match = requireMatch(tx, id);
+				const match = requirePlayableMatch(tx, id);
 				const now = clock.now();
 				tx.update(matches)
 					.set({ status: 'live', clockStartedAt: match.clockStartedAt ?? now, updatedAt: now })
@@ -791,7 +804,7 @@ export function createLeagueStore(db: Db, clock: Clock = systemClock) {
 		/** Stops the clock, for half-time or a break, without ending the match. */
 		pauseMatch(id: number): void {
 			db.transaction((tx) => {
-				const match = requireMatch(tx, id);
+				const match = requirePlayableMatch(tx, id);
 				tx.update(matches)
 					.set({ ...stoppedClock(match), updatedAt: clock.now() })
 					.where(eq(matches.id, id))
@@ -803,7 +816,7 @@ export function createLeagueStore(db: Db, clock: Clock = systemClock) {
 		/** Final whistle: the clock stops and the result counts for the table. */
 		finishMatch(id: number): void {
 			db.transaction((tx) => {
-				const match = requireMatch(tx, id);
+				const match = requirePlayableMatch(tx, id);
 				tx.update(matches)
 					.set({ status: 'finished', ...stoppedClock(match), updatedAt: clock.now() })
 					.where(eq(matches.id, id))
@@ -816,7 +829,7 @@ export function createLeagueStore(db: Db, clock: Clock = systemClock) {
 		setClock(id: number, playedMs: number): void {
 			if (!Number.isFinite(playedMs)) throw new LeagueError('Ese tiempo no es válido.');
 			db.transaction((tx) => {
-				const match = requireMatch(tx, id);
+				const match = requirePlayableMatch(tx, id);
 				const now = clock.now();
 				tx.update(matches)
 					.set({
@@ -873,14 +886,14 @@ export function createLeagueStore(db: Db, clock: Clock = systemClock) {
 			if (!isOneOf(MATCH_EVENT_TYPES, input.type)) {
 				throw new LeagueError('Ese tipo de evento no es válido.');
 			}
-			const isGoal = countsAsGoal(input.type);
-			if (input.playerId === null && !isGoal) {
+			const goals = goalValue(input.type);
+			if (input.playerId === null && goals === 0) {
 				throw new LeagueError('Elige a quién se le mostró la tarjeta.');
 			}
 			const givenMinute = input.minute === undefined ? undefined : validateMinute(input.minute);
 
 			return db.transaction((tx) => {
-				const match = requireMatch(tx, matchId);
+				const match = requirePlayableMatch(tx, matchId);
 				const isHome = input.teamId === match.homeTeamId;
 				if (!isHome && input.teamId !== match.awayTeamId) {
 					throw new LeagueError('Ese equipo no juega este partido.');
@@ -909,11 +922,12 @@ export function createLeagueStore(db: Db, clock: Clock = systemClock) {
 					.returning({ id: matchEvents.id })
 					.get();
 
-				const score = !isGoal
-					? {}
-					: isHome
-						? { homeScore: Math.min(MAX_SCORE, match.homeScore + 1) }
-						: { awayScore: Math.min(MAX_SCORE, match.awayScore + 1) };
+				const score =
+					goals === 0
+						? {}
+						: isHome
+							? { homeScore: Math.min(MAX_SCORE, match.homeScore + goals) }
+							: { awayScore: Math.min(MAX_SCORE, match.awayScore + goals) };
 				tx.update(matches)
 					.set({
 						...score,
@@ -949,17 +963,52 @@ export function createLeagueStore(db: Db, clock: Clock = systemClock) {
 				if (!event) return;
 				tx.delete(matchEvents).where(eq(matchEvents.id, eventId)).run();
 
-				if (isOneOf(MATCH_EVENT_TYPES, event.type) && countsAsGoal(event.type)) {
+				const goals = isOneOf(MATCH_EVENT_TYPES, event.type) ? goalValue(event.type) : 0;
+				if (goals > 0) {
 					const match = requireMatch(tx, event.matchId);
 					const score =
 						event.teamId === match.homeTeamId
-							? { homeScore: Math.max(0, match.homeScore - 1) }
-							: { awayScore: Math.max(0, match.awayScore - 1) };
+							? { homeScore: Math.max(0, match.homeScore - goals) }
+							: { awayScore: Math.max(0, match.awayScore - goals) };
 					tx.update(matches)
 						.set({ ...score, updatedAt: clock.now() })
 						.where(eq(matches.id, match.id))
 						.run();
 				}
+				touch(tx);
+			});
+		},
+
+		/**
+		 * Awards a match to the rival of the side that did not show up: a walkover. Nobody is
+		 * credited with the goals, so nothing may have happened in the match yet.
+		 */
+		forfeitMatch(id: number, absent: Side): void {
+			if (!isOneOf(SIDES, absent)) throw new LeagueError('Elige qué equipo no se presentó.');
+			db.transaction((tx) => {
+				requirePlayableMatch(tx, id);
+				const played = tx
+					.select({ id: matchEvents.id })
+					.from(matchEvents)
+					.where(eq(matchEvents.matchId, id))
+					.get();
+				if (played) {
+					throw new LeagueError(
+						'Este partido ya tiene goles o tarjetas. Borra el resultado antes de darlo por W.O.'
+					);
+				}
+				tx.update(matches)
+					.set({
+						status: 'finished',
+						homeScore: absent === 'home' ? 0 : FORFEIT_GOALS,
+						awayScore: absent === 'home' ? FORFEIT_GOALS : 0,
+						forfeitedBy: absent,
+						clockStartedAt: null,
+						clockElapsedMs: 0,
+						updatedAt: clock.now()
+					})
+					.where(eq(matches.id, id))
+					.run();
 				touch(tx);
 			});
 		},
@@ -974,6 +1023,7 @@ export function createLeagueStore(db: Db, clock: Clock = systemClock) {
 						status: 'pending',
 						homeScore: 0,
 						awayScore: 0,
+						forfeitedBy: null,
 						clockStartedAt: null,
 						clockElapsedMs: 0,
 						updatedAt: clock.now()

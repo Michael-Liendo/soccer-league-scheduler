@@ -30,6 +30,10 @@
 	);
 
 	const isPending = $derived(match.status === 'pending');
+	/** The team that did not show up, when the match was awarded without playing. */
+	const absent = $derived(
+		match.forfeitedBy === null ? undefined : match.forfeitedBy === 'home' ? home : away
+	);
 
 	/** `[0, 1, ...]`, to draw one card per booking. */
 	const times = (count: number) => Array.from({ length: count }, (_, index) => index);
@@ -89,6 +93,13 @@
 		</div>
 	{/if}
 
+	{#if absent}
+		<p class="forfeit">
+			<span class="badge badge-outline">W.O.</span>
+			{absent.name} no se presentó
+		</p>
+	{/if}
+
 	{#if homeEvents.length > 0 || awayEvents.length > 0}
 		<div class="events">
 			<ul class="home">
@@ -113,6 +124,9 @@
 		<span>{player.name} {goalsLabel(player)}</span>
 		{#each times(player.yellows) as index (index)}
 			<span class="card yellow" title="Amarilla"></span>
+		{/each}
+		{#each times(player.blues) as index (index)}
+			<span class="card blue" title="Azul"></span>
 		{/each}
 		{#each times(player.reds) as index (index)}
 			<span class="card red" title="Roja"></span>
@@ -318,8 +332,23 @@
 		background: var(--color-yellow-card);
 	}
 
+	.card.blue {
+		background: var(--color-blue-card);
+	}
+
 	.card.red {
 		background: var(--color-red-card);
+	}
+
+	.forfeit {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		justify-content: center;
+		gap: 4px 8px;
+		color: var(--color-text-muted);
+		font-size: 0.86rem;
+		text-align: center;
 	}
 
 	.actions {

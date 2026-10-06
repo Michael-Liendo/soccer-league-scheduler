@@ -79,6 +79,8 @@ export const matches = sqliteTable(
 		clockStartedAt: integer('clock_started_at'),
 		/** Playing time, in milliseconds, accumulated before the clock was last started. */
 		clockElapsedMs: integer('clock_elapsed_ms').notNull().default(0),
+		/** `home` or `away`: the side that did not show up, when the match was awarded unplayed. */
+		forfeitedBy: text('forfeited_by'),
 		updatedAt: integer('updated_at').notNull()
 	},
 	(table) => [index('matches_day_idx').on(table.matchDayId)]
