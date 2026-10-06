@@ -12,6 +12,11 @@ RUN pnpm build && pnpm prune --prod
 FROM node:24-slim
 WORKDIR /app
 
+# Hosting platforms such as Coolify probe the container's health with curl.
+RUN apt-get update \
+	&& apt-get install --yes --no-install-recommends curl \
+	&& rm -rf /var/lib/apt/lists/*
+
 # The app expects to sit behind a reverse proxy (Coolify's Traefik or Caddy), which tells it the
 # public protocol, host and client address through these headers.
 ENV NODE_ENV=production \
@@ -32,6 +37,6 @@ USER node
 
 EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-	CMD node -e "fetch('http://127.0.0.1:' + process.env.PORT + '/health').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))"
+	CMD curl --fail --silent --show-error "http://127.0.0.1:${PORT}/health" || exit 1
 
 CMD ["node", "build"]
