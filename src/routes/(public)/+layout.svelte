@@ -17,6 +17,10 @@
 
 	const POLL_INTERVAL_MS = 20_000;
 
+	const description = $derived(
+		`Posiciones, calendario, resultados y goleadores de ${data.league.tournament.name} en ${data.league.tournament.location}.`
+	);
+
 	// Keeps the page current while a match is being played: when the league changes on the
 	// server, the data is loaded again without touching what the visitor is looking at.
 	$effect(() => {
@@ -46,10 +50,12 @@
 
 <svelte:head>
 	<title>{data.league.tournament.name}</title>
-	<meta
-		name="description"
-		content="Posiciones, calendario, resultados y goleadores de {data.league.tournament.name}."
-	/>
+	<meta name="description" content={description} />
+	<!-- What WhatsApp and other apps show when the link is shared. -->
+	<meta property="og:type" content="website" />
+	<meta property="og:site_name" content={data.league.tournament.name} />
+	<meta property="og:title" content={data.league.tournament.name} />
+	<meta property="og:description" content={description} />
 </svelte:head>
 
 <Masthead

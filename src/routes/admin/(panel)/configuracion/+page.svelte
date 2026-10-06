@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { LIMITS } from '#lib/league/types.ts';
 	import Dialog from '#lib/ui/Dialog.svelte';
@@ -113,6 +114,19 @@
 				</button>
 				<a class="btn btn-primary" href={whatsappUrl} target="_blank" rel="noopener external">
 					Enviar por WhatsApp
+				</a>
+			</div>
+		</section>
+
+		<section class="panel">
+			<h2 class="panel-title">Respaldo</h2>
+			<p class="help">
+				Descarga una copia de todo: equipos, jugadores, calendario y resultados. Conviene bajarla al
+				terminar cada jornada.
+			</p>
+			<div class="btn-row">
+				<a class="btn" href={resolve('admin/respaldo')} download data-sveltekit-reload>
+					Descargar respaldo
 				</a>
 			</div>
 		</section>
