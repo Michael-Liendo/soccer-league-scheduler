@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import { plural } from '#lib/league/format.ts';
 	import { POSITION_LABELS } from '#lib/league/labels.ts';
 	import { sortedPlayers } from '#lib/league/view.ts';
@@ -14,8 +15,16 @@
 		{#each data.league.teams as team (team.id)}
 			<section class="panel team" style:--team-color={team.color}>
 				<header class="team-head">
-					<h2 class="panel-title">{team.name}</h2>
-					<span class="muted">{plural(team.players.length, 'jugador', 'jugadores')}</span>
+					<div>
+						<h2 class="panel-title">{team.name}</h2>
+						<span class="muted">{plural(team.players.length, 'jugador', 'jugadores')}</span>
+					</div>
+					<a
+						class="btn btn-sm"
+						href={resolve('/(public)/equipos/[teamId]', { teamId: String(team.id) })}
+					>
+						Ver ficha
+					</a>
 				</header>
 				{#if team.players.length === 0}
 					<p class="help">Plantilla sin cargar.</p>
@@ -44,7 +53,7 @@
 
 	.team-head {
 		display: flex;
-		align-items: baseline;
+		align-items: flex-start;
 		justify-content: space-between;
 		gap: 10px;
 		margin-bottom: 8px;

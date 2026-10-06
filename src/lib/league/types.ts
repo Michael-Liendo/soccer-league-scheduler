@@ -7,6 +7,8 @@ export type MatchStatus = (typeof MATCH_STATUSES)[number];
 export const MATCH_EVENT_TYPES = ['goal', 'yellow', 'red'] as const;
 export type MatchEventType = (typeof MATCH_EVENT_TYPES)[number];
 
+export type MatchSide = 'home' | 'away';
+
 export interface Player {
 	id: number;
 	teamId: number;

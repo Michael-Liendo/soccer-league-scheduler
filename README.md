@@ -4,14 +4,18 @@ A small web app to run a local soccer cup: register the teams, plan how many mat
 on each match day, and share a read-only calendar with the players. It was built for a
 three-a-side cup played over four Saturdays in Naiguatá, Venezuela, so the interface is in Spanish.
 
-- **Public view** (`/`): calendar by match day and team rosters, made for phones.
+- **Public view** (`/`): standings, calendar and results by match day, top scorers, cards, fair
+  play and a sheet for every team. Made for phones; it refreshes by itself while matches are
+  being played.
 - **Admin panel** (`/admin`): protected by a private code. Create teams and players, plan and
-  generate the calendar, move individual matches, and edit the cup settings.
+  generate the calendar, record scores, goals and cards as they happen, move individual matches,
+  and edit the cup settings.
 - **Planner**: given the teams, the match days and the daily timetable, it compares one to four
   round-robin legs, recommends the format that gives every team two to three matches per day
   without running past the end time, and spreads the matches so teams rest between games.
 
-Results, standings and statistics are the next step.
+Standings use three points for a win and one for a draw. Ties are broken by goal difference, goals
+scored and fair play, in that order.
 
 ## Stack
 

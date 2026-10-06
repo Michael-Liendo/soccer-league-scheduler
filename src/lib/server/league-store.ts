@@ -1,4 +1,4 @@
-import { asc, count, eq, max } from 'drizzle-orm';
+import { and, asc, count, eq, max } from 'drizzle-orm';
 import {
 	formatDate,
 	isClockTime,
@@ -17,6 +17,7 @@ import {
 	type Match,
 	type MatchEvent,
 	type MatchEventType,
+	type MatchSide,
 	type MatchStatus,
 	type Player,
 	type Position,
@@ -91,6 +92,14 @@ export interface MatchScheduleInput {
 	time: string | null;
 	venue: string | null;
 }
+
+export interface MatchEventInput {
+	teamId: number;
+	playerId: number;
+	type: MatchEventType;
+}
+
+const MAX_SCORE = 99;
 
 export interface Clock {
 	/** Current time in epoch milliseconds. */
@@ -260,6 +269,12 @@ export function createLeagueStore(db: Db, clock: Clock = systemClock) {
 		return team;
 	}
 
+	function requireMatch(executor: Executor, id: number) {
+		const match = executor.select().from(matches).where(eq(matches.id, id)).get();
+		if (!match) throw new LeagueError('Ese partido ya no existe.');
+		return match;
+	}
+
 	/** Renumbers the matches of a day by kick-off time and gives each slot its time. */
 	function retimeDay(executor: Executor, matchDayId: number, timing: PlanTiming): void {
 		const dayMatches = executor
@@ -346,6 +361,11 @@ export function createLeagueStore(db: Db, clock: Clock = systemClock) {
 	db.transaction((tx) => seedDefaults(tx));
 
 	return {
+		/** When the league last changed, for clients that poll for updates. */
+		getUpdatedAt(): number {
+			return readTournament(db).updatedAt;
+		},
+
 		getLeague(): League {
 			const days = db
 				.select()
@@ -605,8 +625,7 @@ export function createLeagueStore(db: Db, clock: Clock = systemClock) {
 			const venue = input.venue ? cleanText(input.venue).slice(0, LIMITS.venue) || null : null;
 
 			db.transaction((tx) => {
-				const match = tx.select().from(matches).where(eq(matches.id, id)).get();
-				if (!match) throw new LeagueError('Ese partido ya no existe.');
+				const match = requireMatch(tx, id);
 				const day = tx
 					.select({ id: matchDays.id })
 					.from(matchDays)
@@ -631,6 +650,136 @@ export function createLeagueStore(db: Db, clock: Clock = systemClock) {
 						venue,
 						updatedAt: clock.now()
 					})
+					.where(eq(matches.id, id))
+					.run();
+				touch(tx);
+			});
+		},
+
+		setMatchStatus(id: number, status: MatchStatus): void {
+			if (!isOneOf(MATCH_STATUSES, status)) throw new LeagueError('Ese estado no es válido.');
+			db.transaction((tx) => {
+				requireMatch(tx, id);
+				tx.update(matches).set({ status, updatedAt: clock.now() }).where(eq(matches.id, id)).run();
+				touch(tx);
+			});
+		},
+
+		/**
+		 * Adds or takes away one goal without saying who scored it. The score never drops below
+		 * the goals that do have a scorer; those are removed with {@link removeMatchEvent}.
+		 */
+		adjustScore(id: number, side: MatchSide, delta: 1 | -1): void {
+			db.transaction((tx) => {
+				const match = requireMatch(tx, id);
+				const teamId = side === 'home' ? match.homeTeamId : match.awayTeamId;
+				const credited =
+					tx
+						.select({ value: count() })
+						.from(matchEvents)
+						.where(
+							and(
+								eq(matchEvents.matchId, id),
+								eq(matchEvents.teamId, teamId),
+								eq(matchEvents.type, 'goal')
+							)
+						)
+						.get()?.value ?? 0;
+				const current = side === 'home' ? match.homeScore : match.awayScore;
+				const next = Math.min(MAX_SCORE, Math.max(credited, current + delta));
+				if (next === current) return;
+
+				tx.update(matches)
+					.set({
+						...(side === 'home' ? { homeScore: next } : { awayScore: next }),
+						// Touching the score of a match that had not started means it is under way.
+						status: match.status === 'pending' ? 'live' : match.status,
+						updatedAt: clock.now()
+					})
+					.where(eq(matches.id, id))
+					.run();
+				touch(tx);
+			});
+		},
+
+		/** Records a goal or a card for a player. A goal also adds to the score. */
+		addMatchEvent(matchId: number, input: MatchEventInput): number {
+			if (!isOneOf(MATCH_EVENT_TYPES, input.type)) {
+				throw new LeagueError('Ese tipo de evento no es válido.');
+			}
+			return db.transaction((tx) => {
+				const match = requireMatch(tx, matchId);
+				const isHome = input.teamId === match.homeTeamId;
+				if (!isHome && input.teamId !== match.awayTeamId) {
+					throw new LeagueError('Ese equipo no juega este partido.');
+				}
+				const player = tx.select().from(players).where(eq(players.id, input.playerId)).get();
+				if (!player || player.teamId !== input.teamId) {
+					throw new LeagueError('Elige un jugador de ese equipo.');
+				}
+
+				const now = clock.now();
+				const created = tx
+					.insert(matchEvents)
+					.values({
+						matchId,
+						teamId: input.teamId,
+						playerId: player.id,
+						playerName: player.name,
+						type: input.type,
+						createdAt: now
+					})
+					.returning({ id: matchEvents.id })
+					.get();
+
+				const score =
+					input.type !== 'goal'
+						? {}
+						: isHome
+							? { homeScore: Math.min(MAX_SCORE, match.homeScore + 1) }
+							: { awayScore: Math.min(MAX_SCORE, match.awayScore + 1) };
+				tx.update(matches)
+					.set({
+						...score,
+						status: match.status === 'pending' ? 'live' : match.status,
+						updatedAt: now
+					})
+					.where(eq(matches.id, matchId))
+					.run();
+				touch(tx);
+				return created.id;
+			});
+		},
+
+		/** Deletes a goal or a card. Deleting a goal takes it off the score. */
+		removeMatchEvent(eventId: number): void {
+			db.transaction((tx) => {
+				const event = tx.select().from(matchEvents).where(eq(matchEvents.id, eventId)).get();
+				if (!event) return;
+				tx.delete(matchEvents).where(eq(matchEvents.id, eventId)).run();
+
+				if (event.type === 'goal') {
+					const match = requireMatch(tx, event.matchId);
+					const score =
+						event.teamId === match.homeTeamId
+							? { homeScore: Math.max(0, match.homeScore - 1) }
+							: { awayScore: Math.max(0, match.awayScore - 1) };
+					tx.update(matches)
+						.set({ ...score, updatedAt: clock.now() })
+						.where(eq(matches.id, match.id))
+						.run();
+				}
+				touch(tx);
+			});
+		},
+
+		/** Forgets the result of a match: no score, no goals or cards, and back to pending. */
+		resetMatch(id: number): void {
+			db.transaction((tx) => {
+				requireMatch(tx, id);
+				tx.delete(matchEvents).where(eq(matchEvents.matchId, id)).run();
+				tx.update(matches)
+					.set({ status: 'pending', homeScore: 0, awayScore: 0, updatedAt: clock.now() })
 					.where(eq(matches.id, id))
 					.run();
 				touch(tx);

@@ -1,5 +1,6 @@
 /** Helpers that shape league data for the screens. All pure, so they run the same on both sides. */
 import { capitalize, formatDate, formatDateRange } from './format.ts';
+import { champion } from './standings.ts';
 import type { League, Match, MatchDay, Player, Team } from './types.ts';
 
 export function teamsById(teams: readonly Team[]): Map<number, Team> {
@@ -44,7 +45,11 @@ export function leaguePhase(league: League, today: string): string {
 	if (league.matches.length === 0) return 'Todavía sin calendario';
 
 	const pending = league.matches.filter((match) => match.status !== 'finished');
-	if (pending.length === 0) return 'Torneo terminado';
+	if (pending.length === 0) {
+		const winner = champion(league);
+		const name = league.teams.find((team) => team.id === winner?.teamId)?.name;
+		return name ? `Campeón: ${name}` : 'Torneo terminado';
+	}
 
 	const pendingDayIds = new Set(pending.map((match) => match.matchDayId));
 	const current = league.matchDays.find((day) => pendingDayIds.has(day.id));
@@ -68,4 +73,38 @@ export function kickoffRange(matches: readonly Match[]): { first: string; last: 
 
 export function venueOf(match: Match, league: League): string {
 	return match.venue ?? league.tournament.venue;
+}
+
+export interface PlayerEvents {
+	key: string;
+	name: string;
+	goals: number;
+	yellows: number;
+	reds: number;
+}
+
+/** What each player of one side did in a match, in the order they first appear. */
+export function eventsByPlayer(match: Match, team: Team | undefined): PlayerEvents[] {
+	if (!team) return [];
+	const names = new Map(team.players.map((player) => [player.id, player.name]));
+	const summary = new Map<string, PlayerEvents>();
+	for (const event of match.events) {
+		if (event.teamId !== team.id) continue;
+		const key = event.playerId === null ? `name:${event.playerName}` : `player:${event.playerId}`;
+		let entry = summary.get(key);
+		if (!entry) {
+			const name = (event.playerId !== null && names.get(event.playerId)) || event.playerName;
+			entry = { key, name, goals: 0, yellows: 0, reds: 0 };
+			summary.set(key, entry);
+		}
+		if (event.type === 'goal') entry.goals += 1;
+		else if (event.type === 'yellow') entry.yellows += 1;
+		else entry.reds += 1;
+	}
+	return [...summary.values()];
+}
+
+/** Goals of a side that were recorded with a scorer. */
+export function creditedGoals(match: Match, teamId: number): number {
+	return match.events.filter((event) => event.type === 'goal' && event.teamId === teamId).length;
 }

@@ -377,6 +377,118 @@ describe('editing a match', () => {
 	});
 });
 
+describe('recording results', () => {
+	/** Two teams with one player each and a single match between them. */
+	function kickOff() {
+		const [homeId, awayId] = addTeams(2);
+		const scorer = store.addPlayer(homeId, { name: 'Luis Marcano', number: '10', position: 'FWD' });
+		const keeper = store.addPlayer(awayId, { name: 'Pedro Rojas', number: '1', position: 'GK' });
+		store.generateSchedule({ legs: 1, matchesPerDay: [1, 0, 0, 0], random: false });
+		const matchId = store.getLeague().matches[0].id;
+		return { homeId, awayId, scorer, keeper, matchId };
+	}
+
+	function theMatch() {
+		return store.getLeague().matches[0];
+	}
+
+	it('counts a goal for the scorer and starts the match', () => {
+		const { homeId, scorer, matchId } = kickOff();
+		store.addMatchEvent(matchId, { teamId: homeId, playerId: scorer, type: 'goal' });
+
+		expect(theMatch()).toMatchObject({ status: 'live', homeScore: 1, awayScore: 0 });
+		expect(theMatch().events).toMatchObject([
+			{ teamId: homeId, playerId: scorer, playerName: 'Luis Marcano', type: 'goal' }
+		]);
+	});
+
+	it('records cards without changing the score', () => {
+		const { awayId, keeper, matchId } = kickOff();
+		store.addMatchEvent(matchId, { teamId: awayId, playerId: keeper, type: 'yellow' });
+		store.addMatchEvent(matchId, { teamId: awayId, playerId: keeper, type: 'red' });
+
+		expect(theMatch()).toMatchObject({ homeScore: 0, awayScore: 0 });
+		expect(theMatch().events.map((event) => event.type)).toEqual(['yellow', 'red']);
+	});
+
+	it('only accepts players of the teams on the field', () => {
+		const { homeId, awayId, keeper, matchId } = kickOff();
+		const outsider = store.createTeam({ name: 'Visitantes', color: '#000000' });
+		const stranger = store.addPlayer(outsider, { name: 'Otro', number: null, position: null });
+
+		expect(() =>
+			store.addMatchEvent(matchId, { teamId: homeId, playerId: keeper, type: 'goal' })
+		).toThrow(/jugador de ese equipo/);
+		expect(() =>
+			store.addMatchEvent(matchId, { teamId: outsider, playerId: stranger, type: 'goal' })
+		).toThrow(/no juega este partido/);
+		expect(theMatch().events).toEqual([]);
+		expect(awayId).not.toBe(outsider);
+	});
+
+	it('takes a deleted goal off the score', () => {
+		const { homeId, scorer, matchId } = kickOff();
+		const first = store.addMatchEvent(matchId, { teamId: homeId, playerId: scorer, type: 'goal' });
+		store.addMatchEvent(matchId, { teamId: homeId, playerId: scorer, type: 'goal' });
+		store.removeMatchEvent(first);
+
+		expect(theMatch()).toMatchObject({ homeScore: 1 });
+		expect(theMatch().events).toHaveLength(1);
+	});
+
+	it('lets the score be adjusted without naming scorers', () => {
+		const { matchId } = kickOff();
+		store.adjustScore(matchId, 'away', 1);
+		store.adjustScore(matchId, 'away', 1);
+		store.adjustScore(matchId, 'away', -1);
+
+		expect(theMatch()).toMatchObject({ status: 'live', homeScore: 0, awayScore: 1 });
+	});
+
+	it('never drops the score below the goals that have a scorer', () => {
+		const { homeId, scorer, matchId } = kickOff();
+		store.addMatchEvent(matchId, { teamId: homeId, playerId: scorer, type: 'goal' });
+		store.adjustScore(matchId, 'home', -1);
+		store.adjustScore(matchId, 'away', -1);
+
+		expect(theMatch()).toMatchObject({ homeScore: 1, awayScore: 0 });
+	});
+
+	it('changes the status of a match', () => {
+		const { matchId } = kickOff();
+		store.setMatchStatus(matchId, 'finished');
+		expect(theMatch().status).toBe('finished');
+		store.setMatchStatus(matchId, 'pending');
+		expect(theMatch().status).toBe('pending');
+		expect(() => store.setMatchStatus(999, 'live')).toThrow(LeagueError);
+	});
+
+	it('keeps the name on the goals of a player who is later removed', () => {
+		const { homeId, scorer, matchId } = kickOff();
+		store.addMatchEvent(matchId, { teamId: homeId, playerId: scorer, type: 'goal' });
+		store.deletePlayer(scorer);
+
+		expect(theMatch().events).toMatchObject([{ playerId: null, playerName: 'Luis Marcano' }]);
+		expect(theMatch().homeScore).toBe(1);
+	});
+
+	it('forgets a result when the match is reset', () => {
+		const { homeId, scorer, matchId } = kickOff();
+		store.addMatchEvent(matchId, { teamId: homeId, playerId: scorer, type: 'goal' });
+		store.setMatchStatus(matchId, 'finished');
+		store.resetMatch(matchId);
+
+		expect(theMatch()).toMatchObject({ status: 'pending', homeScore: 0, awayScore: 0, events: [] });
+	});
+
+	it('marks the league as updated on every change', () => {
+		const { matchId } = kickOff();
+		const before = store.getLeague().tournament.updatedAt;
+		store.adjustScore(matchId, 'home', 1);
+		expect(store.getLeague().tournament.updatedAt).toBeGreaterThan(before);
+	});
+});
+
 describe('starting over', () => {
 	it('clears the calendar but keeps the teams', () => {
 		addTeams(4);

@@ -15,7 +15,7 @@
 	const tournament = $derived(data.league.tournament);
 	const publicUrl = $derived(`${page.url.origin}/`);
 	const whatsappUrl = $derived(
-		`https://wa.me/?text=${encodeURIComponent(`Calendario y equipos de ${tournament.name}: ${publicUrl}`)}`
+		`https://wa.me/?text=${encodeURIComponent(`Tabla, partidos y goleadores de ${tournament.name}: ${publicUrl}`)}`
 	);
 
 	async function copyPublicUrl() {
@@ -95,8 +95,8 @@
 		<section class="panel">
 			<h2 class="panel-title">Vista pública</h2>
 			<p class="help">
-				Quien abra este link ve el calendario y los equipos sin código y sin poder cambiar nada. Se
-				actualiza sola cada vez que guardas.
+				Quien abra este link ve la tabla, los partidos, las estadísticas y los equipos sin código y
+				sin poder cambiar nada. Se actualiza sola cada vez que guardas.
 			</p>
 			<label class="field">
 				<span class="field-label">Link de la copa</span>

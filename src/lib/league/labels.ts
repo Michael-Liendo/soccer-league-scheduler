@@ -53,3 +53,10 @@ export function nextTeamColor(usedColors: readonly string[]): string {
 		TEAM_COLORS[usedColors.length % TEAM_COLORS.length]
 	);
 }
+
+/** Letters shown for a win, a draw and a loss ("ganado", "empatado", "perdido"). */
+export const FORM_LABELS = {
+	W: { letter: 'G', title: 'Ganado' },
+	D: { letter: 'E', title: 'Empatado' },
+	L: { letter: 'P', title: 'Perdido' }
+} as const;

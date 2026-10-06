@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import { resolve } from '$app/paths';
-	import { formatDate } from '#lib/league/format.ts';
-	import { LIMITS, type Match } from '#lib/league/types.ts';
+	import MatchEditor from '#lib/admin/MatchEditor.svelte';
+	import type { Match } from '#lib/league/types.ts';
 	import { teamsById } from '#lib/league/view.ts';
 	import Dialog from '#lib/ui/Dialog.svelte';
 	import { withFeedback } from '#lib/ui/forms.ts';
@@ -17,9 +17,10 @@
 	const league = $derived(data.league);
 	const teams = $derived(teamsById(league.teams));
 	const editing = $derived(league.matches.find((match) => match.id === editingId));
-	const editingTitle = $derived(
+	const editingDay = $derived(league.matchDays.find((day) => day.id === editing?.matchDayId));
+	const editingTeams = $derived(
 		editing
-			? `${teams.get(editing.homeTeamId)?.name ?? '?'} vs ${teams.get(editing.awayTeamId)?.name ?? '?'}`
+			? `${teams.get(editing.homeTeamId)?.name ?? '?'} contra ${teams.get(editing.awayTeamId)?.name ?? '?'}`
 			: ''
 	);
 </script>
@@ -32,8 +33,27 @@
 {:else}
 	<MatchList {league} today={data.today}>
 		{#snippet actions(match: Match)}
-			<button type="button" class="btn btn-sm" onclick={() => (editingId = match.id)}>
-				<Icon name="pencil" /> Cambiar día u hora
+			<form class="status" method="POST" action="?/status" use:enhance={withFeedback()}>
+				<input type="hidden" name="matchId" value={match.id} />
+				<button
+					class={['btn', 'btn-sm', match.status === 'live' && 'on-live']}
+					name="status"
+					value={match.status === 'live' ? 'pending' : 'live'}
+					aria-pressed={match.status === 'live'}
+				>
+					En vivo
+				</button>
+				<button
+					class={['btn', 'btn-sm', match.status === 'finished' && 'on']}
+					name="status"
+					value={match.status === 'finished' ? 'live' : 'finished'}
+					aria-pressed={match.status === 'finished'}
+				>
+					{match.status === 'finished' ? 'Finalizado' : 'Finalizar'}
+				</button>
+			</form>
+			<button type="button" class="btn btn-sm btn-primary" onclick={() => (editingId = match.id)}>
+				<Icon name="pencil" /> Editar partido
 			</button>
 		{/snippet}
 	</MatchList>
@@ -41,48 +61,15 @@
 
 <Dialog
 	bind:open={() => editing !== undefined, (open) => !open && (editingId = null)}
-	title="Cambiar día u hora"
-	subtitle={editingTitle}
+	title={editingDay ? `Jornada ${editingDay.number}` : 'Partido'}
+	subtitle={editingTeams}
+	wide
 >
 	{#if editing}
-		<form
-			id="reschedule"
-			class="stack"
-			method="POST"
-			action="?/reschedule"
-			use:enhance={withFeedback({ onSuccess: () => (editingId = null) })}
-		>
-			<input type="hidden" name="matchId" value={editing.id} />
-			<label class="field">
-				<span class="field-label">Jornada</span>
-				<select class="input" name="matchDayId" value={editing.matchDayId}>
-					{#each league.matchDays as day (day.id)}
-						<option value={day.id}>
-							Jornada {day.number} · {formatDate(day.date, 'long')}
-						</option>
-					{/each}
-				</select>
-			</label>
-			<label class="field">
-				<span class="field-label">Hora</span>
-				<input class="input" type="time" name="time" value={editing.time ?? ''} />
-			</label>
-			<label class="field">
-				<span class="field-label">Cancha</span>
-				<input
-					class="input"
-					name="venue"
-					value={editing.venue ?? ''}
-					maxlength={LIMITS.venue}
-					placeholder={league.tournament.venue || 'Ej. Cancha del malecón'}
-				/>
-				<span class="help">Déjalo vacío para usar la cancha de la copa.</span>
-			</label>
-		</form>
+		<MatchEditor match={editing} {league} />
 	{/if}
 	{#snippet footer()}
-		<button type="button" class="btn" onclick={() => (editingId = null)}>Cancelar</button>
-		<button class="btn btn-primary" form="reschedule">Guardar</button>
+		<button type="button" class="btn btn-primary" onclick={() => (editingId = null)}>Listo</button>
 	{/snippet}
 </Dialog>
 
@@ -92,5 +79,24 @@
 		flex-direction: column;
 		align-items: center;
 		gap: 12px;
+	}
+
+	.status {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 6px;
+		margin-right: auto;
+	}
+
+	.status :global(.on) {
+		border-color: var(--color-text);
+		background: var(--color-text);
+		color: var(--color-bg);
+	}
+
+	.status :global(.on-live) {
+		border-color: var(--color-live);
+		background: var(--color-live);
+		color: #fff;
 	}
 </style>

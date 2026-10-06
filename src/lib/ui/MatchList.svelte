@@ -8,11 +8,13 @@
 	interface Props {
 		league: League;
 		today: string;
-		/** Extra buttons for each match, used by the admin panel. */
+		/** Extra buttons shown under each match. */
 		actions?: Snippet<[Match]>;
+		/** Which matches get the extra buttons. All of them unless told otherwise. */
+		hasActions?: (match: Match) => boolean;
 	}
 
-	let { league, today, actions }: Props = $props();
+	let { league, today, actions, hasActions = () => true }: Props = $props();
 
 	let dayFilter = $state('all');
 	let teamFilter = $state('all');
@@ -80,7 +82,7 @@
 					home={teams.get(match.homeTeamId)}
 					away={teams.get(match.awayTeamId)}
 					venue={venueOf(match, league)}
-					actions={actions ? matchActions : undefined}
+					actions={actions && hasActions(match) ? matchActions : undefined}
 				/>
 				{#snippet matchActions()}
 					{@render actions?.(match)}

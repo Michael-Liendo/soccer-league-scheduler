@@ -22,7 +22,8 @@
 	const currentPath = $derived(page.url.pathname.replace(/\/+$/, ''));
 
 	function isCurrent(item: TabItem): boolean {
-		return currentPath === (item.path === '' ? '' : `/${item.path}`);
+		if (item.path === '') return currentPath === '';
+		return currentPath === `/${item.path}` || currentPath.startsWith(`/${item.path}/`);
 	}
 </script>
 

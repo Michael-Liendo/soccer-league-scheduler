@@ -3,6 +3,7 @@
 	import { formatTime } from '#lib/league/format.ts';
 	import { STATUS_LABELS } from '#lib/league/labels.ts';
 	import type { Match, Team } from '#lib/league/types.ts';
+	import { eventsByPlayer, type PlayerEvents } from '#lib/league/view.ts';
 
 	interface Props {
 		match: Match;
@@ -15,6 +16,11 @@
 	let { match, home, away, venue, actions }: Props = $props();
 
 	const isPending = $derived(match.status === 'pending');
+
+	/** `[0, 1, ...]`, to draw one card per booking. */
+	const times = (count: number) => Array.from({ length: count }, (_, index) => index);
+	const homeEvents = $derived(eventsByPlayer(match, home));
+	const awayEvents = $derived(eventsByPlayer(match, away));
 </script>
 
 <article class="match" class:live={match.status === 'live'}>
@@ -50,10 +56,39 @@
 		</div>
 	</div>
 
+	{#if homeEvents.length > 0 || awayEvents.length > 0}
+		<div class="events">
+			<ul class="home">
+				{#each homeEvents as player (player.key)}{@render playerEvents(player)}{/each}
+			</ul>
+			<ul>
+				{#each awayEvents as player (player.key)}{@render playerEvents(player)}{/each}
+			</ul>
+		</div>
+	{/if}
+
 	{#if actions}
 		<div class="actions">{@render actions()}</div>
 	{/if}
 </article>
+
+{#snippet playerEvents(player: PlayerEvents)}
+	<li>
+		{#if player.goals > 0}
+			<svg class="ball" viewBox="0 0 24 24" aria-label="Gol">
+				<circle cx="12" cy="12" r="9.5" fill="none" stroke="currentColor" stroke-width="1.8" />
+				<path d="m12 7.2 4.1 3-1.6 4.8h-5l-1.6-4.8z" fill="currentColor" />
+			</svg>
+		{/if}
+		<span>{player.name}{player.goals > 1 ? ` ×${player.goals}` : ''}</span>
+		{#each times(player.yellows) as index (index)}
+			<span class="card yellow" title="Amarilla"></span>
+		{/each}
+		{#each times(player.reds) as index (index)}
+			<span class="card red" title="Roja"></span>
+		{/each}
+	</li>
+{/snippet}
 
 <style>
 	.match {
@@ -95,6 +130,24 @@
 	.badge-live {
 		background: var(--color-live);
 		color: #fff;
+	}
+
+	.badge-live::before {
+		content: '';
+		display: inline-block;
+		width: 7px;
+		height: 7px;
+		margin-right: 6px;
+		border-radius: 50%;
+		background: #fff;
+		vertical-align: 1px;
+		animation: blink 1.2s steps(2) infinite;
+	}
+
+	@keyframes blink {
+		50% {
+			opacity: 0;
+		}
 	}
 
 	.teams {
@@ -157,6 +210,61 @@
 	.dash {
 		margin: 0 7px;
 		opacity: 0.45;
+	}
+
+	.events {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		gap: 4px 28px;
+		color: var(--color-text-muted);
+		font-size: 0.86rem;
+	}
+
+	.events ul {
+		display: flex;
+		flex-direction: column;
+		gap: 3px;
+		min-width: 0;
+		margin: 0;
+		padding: 0;
+		list-style: none;
+	}
+
+	.events ul.home {
+		align-items: flex-end;
+		text-align: right;
+	}
+
+	.events li {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 4px;
+	}
+
+	.events .home li {
+		justify-content: flex-end;
+	}
+
+	.ball {
+		flex: none;
+		width: 14px;
+		height: 14px;
+	}
+
+	.card {
+		flex: none;
+		width: 9px;
+		height: 12px;
+		border-radius: 2px;
+	}
+
+	.card.yellow {
+		background: var(--color-yellow-card);
+	}
+
+	.card.red {
+		background: var(--color-red-card);
 	}
 
 	.actions {
