@@ -3,7 +3,9 @@
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { formatDate, todayIso } from '#lib/league/format.ts';
-	import { LIMITS } from '#lib/league/types.ts';
+	import { CARD_LABELS } from '#lib/league/labels.ts';
+	import { CARD_TYPES, LIMITS } from '#lib/league/types.ts';
+	import { fairPlayLegend } from '#lib/league/view.ts';
 	import Dialog from '#lib/ui/Dialog.svelte';
 	import { withFeedback } from '#lib/ui/forms.ts';
 	import Icon from '#lib/ui/Icon.svelte';
@@ -111,10 +113,32 @@
 						jugadores.
 					</span>
 				</label>
+				<fieldset class="field cards">
+					<legend class="field-label">Tarjetas que se usan</legend>
+					<div class="checks">
+						{#each CARD_TYPES as card (card)}
+							<label class="check">
+								<input
+									type="checkbox"
+									name="cards"
+									value={card}
+									checked={tournament.cards.includes(card)}
+								/>
+								<span class={['card', card]}></span>
+								{CARD_LABELS[card]}
+							</label>
+						{/each}
+					</div>
+					<span class="help">
+						Solo estas salen al anotar un partido y en las estadísticas. La azul manda al jugador
+						unos minutos fuera.
+					</span>
+				</fieldset>
 				<p class="help">
 					Puntos: victoria {tournament.pointsWin}, empate {tournament.pointsDraw}, derrota
 					{tournament.pointsLoss}. La tabla ordena por puntos; si hay empate decide la diferencia de
-					goles, luego los goles a favor y después el juego limpio (amarilla 1, roja 3).
+					goles, luego los goles a favor y después el juego limpio.
+					{fairPlayLegend(tournament.cards)}
 				</p>
 				<div class="btn-row">
 					<button class="btn btn-primary">Guardar</button>
@@ -272,6 +296,50 @@
 
 	.short {
 		max-width: 120px;
+	}
+
+	.cards {
+		margin: 0;
+		padding: 0;
+		border: 0;
+	}
+
+	.cards legend {
+		padding: 0;
+	}
+
+	.checks {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 8px 18px;
+	}
+
+	.check {
+		display: inline-flex;
+		align-items: center;
+		gap: 7px;
+		min-height: 36px;
+		font-weight: 600;
+		cursor: pointer;
+	}
+
+	.card {
+		flex: none;
+		width: 10px;
+		height: 13px;
+		border-radius: 2px;
+	}
+
+	.card.yellow {
+		background: var(--color-yellow-card);
+	}
+
+	.card.blue {
+		background: var(--color-blue-card);
+	}
+
+	.card.red {
+		background: var(--color-red-card);
 	}
 
 	.codes {

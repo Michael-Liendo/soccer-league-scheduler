@@ -1,6 +1,6 @@
 import { redirect } from '@sveltejs/kit';
 import { generateAccessCode, hashAccessCode } from '#lib/server/auth.ts';
-import { attempt, integer, text } from '#lib/server/forms.ts';
+import { attempt, integer, text, texts } from '#lib/server/forms.ts';
 import { league } from '#lib/server/league.ts';
 import { requireAdmin, requireOwner } from '#lib/server/session.ts';
 import type { Actions, PageServerLoad } from './$types';
@@ -22,7 +22,8 @@ export const actions: Actions = {
 				name: text(form, 'name'),
 				location: text(form, 'location'),
 				venue: text(form, 'venue'),
-				playersOnField: integer(form, 'playersOnField')
+				playersOnField: integer(form, 'playersOnField'),
+				cards: texts(form, 'cards')
 			});
 			return { message: 'Configuración guardada' };
 		});

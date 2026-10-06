@@ -2,6 +2,7 @@
 	import { enhance } from '$app/forms';
 	import { elapsedMs, formatClock, hasClockStarted, isClockRunning } from '#lib/league/clock.ts';
 	import { formatDate } from '#lib/league/format.ts';
+	import { CARD_LABELS } from '#lib/league/labels.ts';
 	import {
 		FORFEIT_GOALS,
 		goalValue,
@@ -183,32 +184,21 @@
 					>
 						Gol doble <span class="times">×2</span>
 					</button>
-					<div class="cards">
-						<button
-							type="button"
-							class="btn"
-							aria-label="Amarilla para {team.name}"
-							onclick={() => (picking = { teamId: team.id, type: 'yellow' })}
-						>
-							<span class="card yellow"></span> Amarilla
-						</button>
-						<button
-							type="button"
-							class="btn"
-							aria-label="Azul para {team.name}"
-							onclick={() => (picking = { teamId: team.id, type: 'blue' })}
-						>
-							<span class="card blue"></span> Azul
-						</button>
-						<button
-							type="button"
-							class="btn"
-							aria-label="Roja para {team.name}"
-							onclick={() => (picking = { teamId: team.id, type: 'red' })}
-						>
-							<span class="card red"></span> Roja
-						</button>
-					</div>
+					{#if league.tournament.cards.length > 0}
+						<div class="cards">
+							{#each league.tournament.cards as card (card)}
+								<button
+									type="button"
+									class="btn"
+									aria-label="{CARD_LABELS[card]} para {team.name}"
+									onclick={() => (picking = { teamId: team.id, type: card })}
+								>
+									<span class={['card', card]}></span>
+									{CARD_LABELS[card]}
+								</button>
+							{/each}
+						</div>
+					{/if}
 				</div>
 			{/if}
 		{/each}
@@ -500,8 +490,8 @@
 		font-size: 0.8rem;
 	}
 
-	/* Three cards do not fit side by side on a phone, so the red one takes a row of its own. */
-	.cards .btn:last-child {
+	/* Three cards do not fit side by side on a phone, so an odd one out takes a row of its own. */
+	.cards .btn:last-child:nth-child(odd) {
 		grid-column: 1 / -1;
 	}
 

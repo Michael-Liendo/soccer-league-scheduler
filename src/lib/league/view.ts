@@ -1,10 +1,13 @@
 /** Helpers that shape league data for the screens. All pure, so they run the same on both sides. */
-import { capitalize, formatDate, formatDateRange } from './format.ts';
-import { champion } from './standings.ts';
+import { capitalize, formatDate, formatDateRange, plural } from './format.ts';
+import { CARD_LABELS } from './labels.ts';
+import { champion, FAIR_PLAY_POINTS } from './standings.ts';
 import {
 	CARD_COUNTERS,
+	CARD_TYPES,
 	goalValue,
 	isCard,
+	type CardType,
 	type League,
 	type Match,
 	type MatchDay,
@@ -164,6 +167,27 @@ export function goalsLabel(player: PlayerEvents): string {
 	if (player.goals === 0) return '';
 	if (player.timedGoals === player.goals) return player.goalTimes.join(', ');
 	return player.goals > 1 ? `×${player.goals}` : '';
+}
+
+/** The cards worth a column: the ones the league uses, plus any other that was already shown. */
+export function cardsOnRecord(league: League): CardType[] {
+	return CARD_TYPES.filter(
+		(card) =>
+			league.tournament.cards.includes(card) ||
+			league.matches.some((match) => match.events.some((event) => event.type === card))
+	);
+}
+
+/** "La amarilla suma 1 punto, la azul 2 y la roja 3." Empty when there are no cards to count. */
+export function fairPlayLegend(cards: readonly CardType[]): string {
+	const parts = cards.map((card, index) => {
+		const name = CARD_LABELS[card].toLowerCase();
+		const points = FAIR_PLAY_POINTS[card];
+		return index === 0 ? `La ${name} suma ${plural(points, 'punto')}` : `la ${name} ${points}`;
+	});
+	const last = parts.pop();
+	if (last === undefined) return '';
+	return parts.length === 0 ? `${last}.` : `${parts.join(', ')} y ${last}.`;
 }
 
 /** 1-based position of every match within its day, in playing order. */

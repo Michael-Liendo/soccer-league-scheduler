@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
-	import { POSITION_LABELS } from '#lib/league/labels.ts';
+	import { CARD_PLURALS, POSITION_LABELS } from '#lib/league/labels.ts';
 	import {
 		cardedPlayers,
 		computePlayerStats,
@@ -9,7 +9,8 @@
 		topScorers,
 		type PlayerStat
 	} from '#lib/league/standings.ts';
-	import { teamsById } from '#lib/league/view.ts';
+	import { CARD_COUNTERS } from '#lib/league/types.ts';
+	import { cardsOnRecord, fairPlayLegend, teamsById } from '#lib/league/view.ts';
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
@@ -21,6 +22,7 @@
 	const carded = $derived(cardedPlayers(stats));
 	const defences = $derived(defenseTable(league.teams, league.matches));
 	const fairPlay = $derived(fairPlayTable(league.teams, league.matches));
+	const cards = $derived(cardsOnRecord(league));
 
 	const average = (value: number) => value.toFixed(1).replace('.', ',');
 </script>
@@ -80,9 +82,9 @@
 					<tr>
 						<th>Jugador</th>
 						<th>Equipo</th>
-						<th class="num"><span class="card yellow" title="Amarillas"></span></th>
-						<th class="num"><span class="card blue" title="Azules"></span></th>
-						<th class="num"><span class="card red" title="Rojas"></span></th>
+						{#each cards as card (card)}
+							<th class="num"><span class={['card', card]} title={CARD_PLURALS[card]}></span></th>
+						{/each}
 					</tr>
 				</thead>
 				<tbody>
@@ -90,12 +92,12 @@
 						<tr>
 							<td>{@render playerCell(stat)}</td>
 							<td class="muted">{teams.get(stat.teamId)?.name}</td>
-							<td class="num">{stat.yellows}</td>
-							<td class="num">{stat.blues}</td>
-							<td class="num">{stat.reds}</td>
+							{#each cards as card (card)}
+								<td class="num">{stat[CARD_COUNTERS[card]]}</td>
+							{/each}
 						</tr>
 					{:else}
-						<tr><td colspan="5" class="none">Todavía no hay tarjetas.</td></tr>
+						<tr><td colspan={2 + cards.length} class="none">Todavía no hay tarjetas.</td></tr>
 					{/each}
 				</tbody>
 			</table>
@@ -145,7 +147,7 @@
 		<div class="panel-head">
 			<div>
 				<h2 class="panel-title">Juego limpio</h2>
-				<p class="help">La amarilla suma 1 punto, la azul 2 y la roja 3. Gana quien tenga menos.</p>
+				<p class="help">{fairPlayLegend(cards)} Gana quien tenga menos.</p>
 			</div>
 		</div>
 		<div class="table-scroll">
@@ -154,9 +156,9 @@
 					<tr>
 						<th>#</th>
 						<th>Equipo</th>
-						<th class="num"><span class="card yellow" title="Amarillas"></span></th>
-						<th class="num"><span class="card blue" title="Azules"></span></th>
-						<th class="num"><span class="card red" title="Rojas"></span></th>
+						{#each cards as card (card)}
+							<th class="num"><span class={['card', card]} title={CARD_PLURALS[card]}></span></th>
+						{/each}
 						<th class="num">Pts</th>
 					</tr>
 				</thead>
@@ -165,13 +167,13 @@
 						<tr>
 							<td class="rank">{index + 1}</td>
 							<td>{@render teamCell(row.teamId)}</td>
-							<td class="num">{row.yellows}</td>
-							<td class="num">{row.blues}</td>
-							<td class="num">{row.reds}</td>
+							{#each cards as card (card)}
+								<td class="num">{row[CARD_COUNTERS[card]]}</td>
+							{/each}
 							<td class="num big">{row.points}</td>
 						</tr>
 					{:else}
-						<tr><td colspan="6" class="none">Todavía no hay equipos.</td></tr>
+						<tr><td colspan={3 + cards.length} class="none">Todavía no hay equipos.</td></tr>
 					{/each}
 				</tbody>
 			</table>

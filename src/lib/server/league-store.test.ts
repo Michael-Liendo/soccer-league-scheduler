@@ -88,6 +88,20 @@ describe('settings', () => {
 		expect(tournament.updatedAt).toBeGreaterThan(before);
 	});
 
+	it('uses every card until the league chooses which ones it shows', () => {
+		expect(store.getLeague().tournament.cards).toEqual(['yellow', 'blue', 'red']);
+
+		const settings = { name: 'Liga Caimán', location: 'Naiguatá', venue: '', playersOnField: 3 };
+		store.updateSettings({ ...settings, cards: ['blue', 'purple', 'yellow'] });
+		expect(store.getLeague().tournament.cards).toEqual(['yellow', 'blue']);
+
+		store.updateSettings(settings);
+		expect(store.getLeague().tournament.cards).toEqual(['yellow', 'blue']);
+
+		store.updateSettings({ ...settings, cards: [] });
+		expect(store.getLeague().tournament.cards).toEqual([]);
+	});
+
 	it('requires at least three players on the field', () => {
 		const settings = { name: 'Copa', location: 'Naiguatá', venue: '', playersOnField: 2 };
 		expect(() => store.updateSettings(settings)).toThrow(LeagueError);
@@ -460,6 +474,18 @@ describe('recording results', () => {
 		expect(() =>
 			store.addMatchEvent(matchId, { teamId: awayId, playerId: null, type: 'blue' })
 		).toThrow(/a quién se le mostró/);
+	});
+
+	it('refuses a card the league does not use', () => {
+		const { awayId, keeper, matchId } = kickOff();
+		const { name, location, venue, playersOnField } = store.getLeague().tournament;
+		store.updateSettings({ name, location, venue, playersOnField, cards: ['yellow', 'blue'] });
+
+		expect(() =>
+			store.addMatchEvent(matchId, { teamId: awayId, playerId: keeper, type: 'red' })
+		).toThrow(/no se usa en esta copa/);
+		store.addMatchEvent(matchId, { teamId: awayId, playerId: keeper, type: 'blue' });
+		expect(theMatch().events.map((event) => event.type)).toEqual(['blue']);
 	});
 
 	it('counts an own goal for the team, with no scorer', () => {

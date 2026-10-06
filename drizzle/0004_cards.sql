@@ -1,0 +1,1 @@
+ALTER TABLE `tournament` ADD `cards` text DEFAULT 'yellow,blue,red' NOT NULL;

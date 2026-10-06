@@ -1,10 +1,10 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import { formatDate, formatTime, plural } from '#lib/league/format.ts';
-	import { POSITION_LABELS } from '#lib/league/labels.ts';
+	import { CARD_PLURALS, POSITION_LABELS } from '#lib/league/labels.ts';
 	import { computePlayerStats, computeStandings } from '#lib/league/standings.ts';
-	import type { Match } from '#lib/league/types.ts';
-	import { sortedPlayers, teamsById } from '#lib/league/view.ts';
+	import { CARD_COUNTERS, type Match } from '#lib/league/types.ts';
+	import { cardsOnRecord, sortedPlayers, teamsById } from '#lib/league/view.ts';
 	import FormChips from '#lib/ui/FormChips.svelte';
 	import type { PageProps } from './$types';
 
@@ -29,6 +29,8 @@
 				.map((stat) => [stat.playerId, stat])
 		)
 	);
+
+	const cards = $derived(cardsOnRecord(league));
 
 	const signed = (value: number) => (value > 0 ? `+${value}` : String(value));
 
@@ -145,9 +147,11 @@
 							<tr>
 								<th>Jugador</th>
 								<th class="num">Goles</th>
-								<th class="num"><span class="card yellow" title="Amarillas"></span></th>
-								<th class="num"><span class="card blue" title="Azules"></span></th>
-								<th class="num"><span class="card red" title="Rojas"></span></th>
+								{#each cards as card (card)}
+									<th class="num">
+										<span class={['card', card]} title={CARD_PLURALS[card]}></span>
+									</th>
+								{/each}
 							</tr>
 						</thead>
 						<tbody>
@@ -166,9 +170,9 @@
 										</span>
 									</td>
 									<td class="num">{stat?.goals || '–'}</td>
-									<td class="num">{stat?.yellows || '–'}</td>
-									<td class="num">{stat?.blues || '–'}</td>
-									<td class="num">{stat?.reds || '–'}</td>
+									{#each cards as card (card)}
+										<td class="num">{stat?.[CARD_COUNTERS[card]] || '–'}</td>
+									{/each}
 								</tr>
 							{/each}
 						</tbody>

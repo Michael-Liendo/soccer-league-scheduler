@@ -1,4 +1,4 @@
-import type { MatchStatus, Position } from './types.ts';
+import type { CardType, MatchStatus, Position } from './types.ts';
 
 /** Text shown to people for the values the code keeps in English. */
 
@@ -13,6 +13,19 @@ export const STATUS_LABELS: Record<MatchStatus, string> = {
 	pending: 'Por jugar',
 	live: 'En vivo',
 	finished: 'Finalizado'
+};
+
+export const CARD_LABELS: Record<CardType, string> = {
+	yellow: 'Amarilla',
+	blue: 'Azul',
+	red: 'Roja'
+};
+
+/** For the heading of a column that counts them. */
+export const CARD_PLURALS: Record<CardType, string> = {
+	yellow: 'Amarillas',
+	blue: 'Azules',
+	red: 'Rojas'
 };
 
 export const LEG_LABELS: Record<number, string> = {

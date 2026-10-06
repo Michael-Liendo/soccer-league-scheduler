@@ -108,6 +108,8 @@ export interface Tournament {
 	/** Default venue shown on matches that do not set their own. */
 	venue: string;
 	playersOnField: number;
+	/** The cards the league shows, mildest first. A league can do without some of them. */
+	cards: CardType[];
 	pointsWin: number;
 	pointsDraw: number;
 	pointsLoss: number;

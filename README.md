@@ -13,9 +13,9 @@ three-a-side cup played over four Saturdays in Naiguatá, Venezuela, so the inte
 - **Match day**: every match has a clock. Start it, tap "Gol" and pick the scorer, show cards, and
   the minute is stamped by itself. The order of play can be rearranged, and the public pages show
   what is on now and what comes next.
-- **House rules**: a goal from long range can count double, a blue card sits next to the yellow
-  and the red for sending a player off for a couple of minutes, and a match is awarded 5–0 with
-  one tap when a team does not show up.
+- **House rules**: a goal from long range can count double, a blue card sends a player off for a
+  couple of minutes, and a match is awarded 5–0 with one tap when a team does not show up. Each
+  league chooses which cards it uses: yellow, blue, red, or any mix of them.
 - **Teams in seconds**: paste the teams (and their players) as text, or paste the list of people
   and let the app draw balanced teams, keeping the strongest players apart.
 - **Helpers**: the owner signs in with `ADMIN_CODE` and can create extra codes for people who

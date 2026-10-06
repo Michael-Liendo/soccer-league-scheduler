@@ -29,6 +29,13 @@
       "when": 1791312270997,
       "tag": "0003_forfeit",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1791315322679,
+      "tag": "0004_cards",
+      "breakpoints": true
     }
   ]
 }

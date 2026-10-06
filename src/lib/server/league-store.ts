@@ -11,8 +11,10 @@ import { elapsedMs, MAX_CLOCK_MS, minuteOfPlay } from '#lib/league/clock.ts';
 import { nextTeamColor } from '#lib/league/labels.ts';
 import { buildSchedule, slotTime, totalMatches, type PlanTiming } from '#lib/league/schedule.ts';
 import {
+	CARD_TYPES,
 	FORFEIT_GOALS,
 	goalValue,
+	isCard,
 	LIMITS,
 	MATCH_EVENT_TYPES,
 	MATCH_STATUSES,
@@ -77,6 +79,8 @@ export interface SettingsInput {
 	location: string;
 	venue: string;
 	playersOnField: number;
+	/** The cards the league uses. Left out, the ones it already has stay. */
+	cards?: readonly string[];
 }
 
 export interface PlanDayInput {
@@ -270,6 +274,7 @@ export function createLeagueStore(db: Db, clock: Clock = systemClock) {
 			location: row.location,
 			venue: row.venue,
 			playersOnField: row.playersOnField,
+			cards: CARD_TYPES.filter((card) => row.cards.split(',').includes(card)),
 			pointsWin: row.pointsWin,
 			pointsDraw: row.pointsDraw,
 			pointsLoss: row.pointsLoss,
@@ -512,7 +517,11 @@ export function createLeagueStore(db: Db, clock: Clock = systemClock) {
 					'Los jugadores en cancha',
 					LIMITS.minPlayersOnField,
 					LIMITS.maxPlayersOnField
-				)
+				),
+				// Stored in order of severity whatever order they arrive in; anything unknown is dropped.
+				...(input.cards === undefined
+					? {}
+					: { cards: CARD_TYPES.filter((card) => input.cards?.includes(card)).join(',') })
 			};
 			db.update(tournament)
 				.set({ ...values, updatedAt: clock.now() })
@@ -894,6 +903,9 @@ export function createLeagueStore(db: Db, clock: Clock = systemClock) {
 
 			return db.transaction((tx) => {
 				const match = requirePlayableMatch(tx, matchId);
+				if (isCard(input.type) && !readTournament(tx).cards.includes(input.type)) {
+					throw new LeagueError('Esa tarjeta no se usa en esta copa.');
+				}
 				const isHome = input.teamId === match.homeTeamId;
 				if (!isHome && input.teamId !== match.awayTeamId) {
 					throw new LeagueError('Ese equipo no juega este partido.');
