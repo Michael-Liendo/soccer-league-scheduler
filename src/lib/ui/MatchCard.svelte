@@ -4,7 +4,7 @@
 	import { formatTime } from '#lib/league/format.ts';
 	import { STATUS_LABELS } from '#lib/league/labels.ts';
 	import type { Match, Team } from '#lib/league/types.ts';
-	import { eventsByPlayer, goalsLabel, type PlayerEvents } from '#lib/league/view.ts';
+	import { eventsByPlayer, goalsLabel, rosterLine, type PlayerEvents } from '#lib/league/view.ts';
 	import Icon from './Icon.svelte';
 
 	interface Props {
@@ -33,6 +33,8 @@
 
 	/** `[0, 1, ...]`, to draw one card per booking. */
 	const times = (count: number) => Array.from({ length: count }, (_, index) => index);
+	const homeRoster = $derived(rosterLine(home));
+	const awayRoster = $derived(rosterLine(away));
 	const homeEvents = $derived(eventsByPlayer(match, home));
 	const awayEvents = $derived(eventsByPlayer(match, away));
 </script>
@@ -73,6 +75,19 @@
 			<span class="name" class:unknown={!away}>{away?.name ?? 'Por definir'}</span>
 		</div>
 	</div>
+
+	{#if homeRoster || awayRoster}
+		<div class="rosters">
+			<p class="home">
+				{#if homeRoster}<span class="visually-hidden">Jugadores de {home?.name}:</span>{/if}
+				{homeRoster}
+			</p>
+			<p>
+				{#if awayRoster}<span class="visually-hidden">Jugadores de {away?.name}:</span>{/if}
+				{awayRoster}
+			</p>
+		</div>
+	{/if}
 
 	{#if homeEvents.length > 0 || awayEvents.length > 0}
 		<div class="events">
@@ -236,6 +251,26 @@
 	.dash {
 		margin: 0 7px;
 		opacity: 0.45;
+	}
+
+	/* Who plays for each side, in small print right under the names. */
+	.rosters {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		gap: 4px 28px;
+		margin-top: -4px;
+		color: var(--color-text-muted);
+		font-size: 0.76rem;
+		line-height: 1.35;
+	}
+
+	.rosters p {
+		min-width: 0;
+		overflow-wrap: anywhere;
+	}
+
+	.rosters .home {
+		text-align: right;
 	}
 
 	.events {

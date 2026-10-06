@@ -32,6 +32,21 @@ export function sortedPlayers(team: Team): Player[] {
 	});
 }
 
+/** How many players a one-line roster names before it starts counting the rest. */
+const ROSTER_LINE_SIZE = 6;
+
+/**
+ * "Ana · Luis · Pedro": the players of a team in one short line, for places with little room.
+ * Large squads end with "y 5 más". Empty when the team is unknown or has no players yet.
+ */
+export function rosterLine(team: Team | undefined, limit = ROSTER_LINE_SIZE): string {
+	if (!team) return '';
+	const names = sortedPlayers(team).map((player) => player.name);
+	// Hiding a single name would take as much room as showing it.
+	if (names.length <= limit + 1) return names.join(' · ');
+	return `${names.slice(0, limit).join(' · ')} y ${names.length - limit} más`;
+}
+
 /** "Naiguatá · del 10 al 31 de octubre" */
 export function leagueKicker(league: League): string {
 	const days = league.matchDays;
