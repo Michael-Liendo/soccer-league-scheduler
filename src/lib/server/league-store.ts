@@ -913,8 +913,13 @@ export function createLeagueStore(db: Db, clock: Clock = systemClock) {
 				let player: { id: number; name: string } | null = null;
 				if (input.playerId !== null && input.type !== 'own_goal') {
 					const found = tx.select().from(players).where(eq(players.id, input.playerId)).get();
-					if (!found || found.teamId !== input.teamId) {
-						throw new LeagueError('Elige un jugador de ese equipo.');
+					// A side that is short may borrow someone from a team that is not on the field.
+					const isRival =
+						found !== undefined &&
+						found.teamId !== input.teamId &&
+						(found.teamId === match.homeTeamId || found.teamId === match.awayTeamId);
+					if (!found || isRival) {
+						throw new LeagueError('Elige un jugador de ese equipo o uno prestado de otro.');
 					}
 					player = found;
 				}

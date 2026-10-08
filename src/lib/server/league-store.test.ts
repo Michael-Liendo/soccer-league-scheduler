@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { openDatabase } from './db/client.ts';
 import { LeagueError } from './errors.ts';
-import { computeStandings } from '#lib/league/standings.ts';
+import { computePlayerStats, computeStandings } from '#lib/league/standings.ts';
 import { createLeagueStore, type Clock, type LeagueStore } from './league-store.ts';
 
 const MONDAY_BEFORE_THE_CUP = '2026-10-05';
@@ -426,7 +426,7 @@ describe('recording results', () => {
 		expect(theMatch().events.map((event) => event.type)).toEqual(['yellow', 'red']);
 	});
 
-	it('only accepts players of the teams on the field', () => {
+	it('does not let a player score for the rival, nor a team that is not playing', () => {
 		const { homeId, awayId, keeper, matchId } = kickOff();
 		const outsider = store.createTeam({ name: 'Visitantes', color: '#000000' });
 		const stranger = store.addPlayer(outsider, { name: 'Otro', number: null, position: null });
@@ -439,6 +439,24 @@ describe('recording results', () => {
 		).toThrow(/no juega este partido/);
 		expect(theMatch().events).toEqual([]);
 		expect(awayId).not.toBe(outsider);
+	});
+
+	it('counts the goal of a borrowed player for the side he played with and for himself', () => {
+		const { homeId, matchId } = kickOff();
+		const lender = store.createTeam({ name: 'Visitantes', color: '#000000' });
+		const borrowed = store.addPlayer(lender, { name: 'Prestado', number: null, position: null });
+
+		store.addMatchEvent(matchId, { teamId: homeId, playerId: borrowed, type: 'goal' });
+		expect(theMatch()).toMatchObject({ homeScore: 1, awayScore: 0 });
+		expect(theMatch().events).toMatchObject([
+			{ teamId: homeId, playerId: borrowed, playerName: 'Prestado' }
+		]);
+
+		const league = store.getLeague();
+		expect(computePlayerStats(league.teams, league.matches)).toMatchObject([
+			{ playerId: borrowed, teamId: lender, goals: 1 }
+		]);
+		expect(store.getLeague().teams.find((team) => team.id === homeId)?.players).toHaveLength(1);
 	});
 
 	it('takes a deleted goal off the score', () => {

@@ -178,7 +178,8 @@ export function computePlayerStats(
 				stat = {
 					key,
 					playerId: player?.id ?? null,
-					teamId: event.teamId,
+					// A borrowed player stays listed under the team they belong to.
+					teamId: player?.teamId ?? event.teamId,
 					name: player?.name ?? event.playerName,
 					number: player?.number ?? null,
 					position: player?.position ?? null,

@@ -131,9 +131,13 @@ export function eventsByPlayer(match: Match, team: Team | undefined): PlayerEven
 				: `player:${event.playerId}`;
 		let entry = summary.get(key);
 		if (!entry) {
+			// A player who is still on a roster, but not on this one, was borrowed for the match.
+			const borrowed = event.playerId !== null && !names.has(event.playerId);
 			const name = isOwnGoal
 				? 'Autogol'
-				: (event.playerId !== null && names.get(event.playerId)) || event.playerName || 'Gol';
+				: borrowed
+					? `${event.playerName} (prestado)`
+					: (event.playerId !== null && names.get(event.playerId)) || event.playerName || 'Gol';
 			entry = {
 				key,
 				name,

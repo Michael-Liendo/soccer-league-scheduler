@@ -67,10 +67,21 @@
 
 	function eventLabel(event: MatchEvent): string {
 		if (event.type === 'own_goal') return 'Autogol';
-		const team = league.teams.find((candidate) => candidate.id === event.teamId);
-		const player = team?.players.find((candidate) => candidate.id === event.playerId);
-		return player?.name ?? (event.playerName || 'Gol sin goleador');
+		const owner = league.teams.find((team) =>
+			team.players.some((candidate) => candidate.id === event.playerId)
+		);
+		const player = owner?.players.find((candidate) => candidate.id === event.playerId);
+		if (!player) return event.playerName || 'Gol sin goleador';
+		return owner?.id === event.teamId ? player.name : `${player.name} (prestado)`;
 	}
+
+	/** Teams that are not on the field: a side that is short may borrow one of their players. */
+	const resting = $derived(
+		league.teams.filter(
+			(team) =>
+				team.id !== match.homeTeamId && team.id !== match.awayTeamId && team.players.length > 0
+		)
+	);
 
 	const recorded = () => withFeedback({ onSuccess: () => (picking = null) });
 </script>
@@ -134,6 +145,26 @@
 				</button>
 			{/each}
 		</form>
+		{#if resting.length > 0}
+			<details class="borrowed">
+				<summary>Fue un jugador prestado de otro equipo</summary>
+				<form class="players" method="POST" action="?/addEvent" use:enhance={recorded()}>
+					<input type="hidden" name="matchId" value={match.id} />
+					<input type="hidden" name="teamId" value={pickingTeam.id} />
+					<input type="hidden" name="type" value={picking.type} />
+					{#each resting as team (team.id)}
+						{#each sortedPlayers(team) as player (player.id)}
+							<button class="btn player" name="playerId" value={player.id}>
+								<span>
+									{player.name}
+									<small class="muted">{team.name}</small>
+								</span>
+							</button>
+						{/each}
+					{/each}
+				</form>
+			</details>
+		{/if}
 		<form class="new-player" method="POST" action="?/addEvent" use:enhance={recorded()}>
 			<input type="hidden" name="matchId" value={match.id} />
 			<input type="hidden" name="teamId" value={pickingTeam.id} />
@@ -521,6 +552,21 @@
 		justify-content: flex-start;
 		min-height: 50px;
 		text-align: left;
+	}
+
+	.borrowed summary {
+		color: var(--color-text-muted);
+		font-weight: 600;
+		cursor: pointer;
+	}
+
+	.borrowed .players {
+		margin-top: 10px;
+	}
+
+	.borrowed small {
+		display: block;
+		font-weight: 500;
 	}
 
 	.new-player {

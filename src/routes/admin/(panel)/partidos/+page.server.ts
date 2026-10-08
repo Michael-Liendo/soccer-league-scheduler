@@ -127,8 +127,10 @@ export const actions: Actions = {
 			}
 			store.addMatchEvent(integer(form, 'matchId'), { teamId, playerId, type });
 
-			const team = store.getLeague().teams.find((candidate) => candidate.id === teamId);
-			const player = team?.players.find((candidate) => candidate.id === playerId);
+			const player = store
+				.getLeague()
+				.teams.flatMap((team) => team.players)
+				.find((candidate) => candidate.id === playerId);
 			return { message: EVENT_MESSAGES[type](player?.name ?? '') };
 		});
 	},
