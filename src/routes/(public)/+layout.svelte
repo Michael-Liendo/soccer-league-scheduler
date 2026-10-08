@@ -57,7 +57,7 @@
 	<meta property="og:site_name" content={data.league.tournament.name} />
 	<meta property="og:title" content={data.league.tournament.name} />
 	<meta property="og:description" content={description} />
-	<meta property="og:image" content="{page.url.origin}/og.png" />
+	<meta property="og:image" content="{page.url.origin}/og-liga.png" />
 	<meta property="og:image:width" content="1200" />
 	<meta property="og:image:height" content="630" />
 	<meta name="twitter:card" content="summary_large_image" />
