@@ -154,6 +154,17 @@ describe('teams', () => {
 		expect(store.getLeague().teams[0].players).toEqual([]);
 	});
 
+	it('moves a player to another team', () => {
+		const [first, second] = addTeams(2);
+		const player = store.addPlayer(first, { name: 'Luis', number: '10', position: null });
+
+		expect(store.movePlayer(player, second)).toBe('Equipo 2');
+		const teams = store.getLeague().teams;
+		expect(teams.map((team) => team.players.map((each) => each.name))).toEqual([[], ['Luis']]);
+		expect(() => store.movePlayer(player, 999)).toThrow(LeagueError);
+		expect(() => store.movePlayer(999, first)).toThrow(/ya no existe/);
+	});
+
 	it('removes the players and matches of a deleted team', () => {
 		const ids = addTeams(4);
 		store.addPlayer(ids[0], { name: 'Pedro', number: null, position: null });

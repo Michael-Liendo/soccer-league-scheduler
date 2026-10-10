@@ -125,6 +125,15 @@ export const actions: Actions = {
 		});
 	},
 
+	movePlayer: async ({ request, locals }) => {
+		requireAdmin(locals);
+		const form = await request.formData();
+		return attempt(() => {
+			const teamName = league().movePlayer(integer(form, 'playerId'), integer(form, 'teamId'));
+			return { message: `Ahora juega en ${teamName}` };
+		});
+	},
+
 	deletePlayer: async ({ request, locals }) => {
 		requireAdmin(locals);
 		const form = await request.formData();

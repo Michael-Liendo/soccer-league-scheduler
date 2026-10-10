@@ -9,12 +9,14 @@
 
 	interface Props {
 		team: Team;
+		/** The other teams, to move a player to one of them. */
+		otherTeams: readonly Team[];
 		playersOnField: number;
 		/** Only the owner may remove teams and players. */
 		canDelete: boolean;
 	}
 
-	let { team, playersOnField, canDelete }: Props = $props();
+	let { team, otherTeams, playersOnField, canDelete }: Props = $props();
 
 	let confirmingDelete = $state(false);
 	let pasting = $state(false);
@@ -111,6 +113,23 @@
 							<button class="icon-btn danger" aria-label="Quitar a {player.name}">
 								<Icon name="trash" />
 							</button>
+						</form>
+					{/if}
+					{#if otherTeams.length > 0}
+						<form class="move" method="POST" action="?/movePlayer" use:enhance={withFeedback()}>
+							<input type="hidden" name="playerId" value={player.id} />
+							<select
+								class="input"
+								name="teamId"
+								value=""
+								aria-label="Mover a {player.name} a otro equipo"
+								onchange={submitOnChange}
+							>
+								<option value="">Mover a otro equipo…</option>
+								{#each otherTeams as other (other.id)}
+									<option value={other.id}>{other.name}</option>
+								{/each}
+							</select>
 						</form>
 					{/if}
 				</li>
@@ -237,6 +256,17 @@
 		gap: 4px;
 		padding: 4px 0;
 		border-bottom: 1px solid var(--color-border);
+	}
+
+	.move {
+		grid-column: 1 / -1;
+	}
+
+	.move .input {
+		min-height: 32px;
+		padding-block: 2px;
+		color: var(--color-text-muted);
+		font-size: 0.84rem;
 	}
 
 	.player-fields {

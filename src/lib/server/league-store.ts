@@ -653,6 +653,25 @@ export function createLeagueStore(db: Db, clock: Clock = systemClock) {
 			});
 		},
 
+		/**
+		 * Moves a player to another team, keeping the goals and cards already to their name.
+		 * Returns the name of the team they join.
+		 */
+		movePlayer(id: number, teamId: number): string {
+			return db.transaction((tx) => {
+				const team = requireTeam(tx, teamId);
+				const moved = tx
+					.update(players)
+					.set({ teamId })
+					.where(eq(players.id, id))
+					.returning({ id: players.id })
+					.get();
+				if (!moved) throw new LeagueError('Ese jugador ya no existe.');
+				touch(tx);
+				return team.name;
+			});
+		},
+
 		deletePlayer(id: number): void {
 			db.transaction((tx) => {
 				tx.delete(players).where(eq(players.id, id)).run();

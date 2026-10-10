@@ -81,6 +81,7 @@
 		{#each league.teams as team (team.id)}
 			<TeamEditor
 				{team}
+				otherTeams={league.teams.filter((other) => other.id !== team.id)}
 				playersOnField={league.tournament.playersOnField}
 				canDelete={data.isOwner}
 			/>
