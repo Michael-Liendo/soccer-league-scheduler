@@ -1,0 +1,1 @@
+ALTER TABLE `tournament` ADD `double_goals` integer DEFAULT true NOT NULL;

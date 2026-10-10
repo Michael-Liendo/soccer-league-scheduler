@@ -134,6 +134,10 @@
 						unos minutos fuera.
 					</span>
 				</fieldset>
+				<label class="check">
+					<input type="checkbox" name="doubleGoals" checked={tournament.doubleGoals} />
+					Se puede anotar un gol doble (vale 2)
+				</label>
 				<p class="help">
 					Puntos: victoria {tournament.pointsWin}, empate {tournament.pointsDraw}, derrota
 					{tournament.pointsLoss}. La tabla ordena por puntos; si hay empate decide la diferencia de

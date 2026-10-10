@@ -112,6 +112,7 @@ describe('the cards a league uses', () => {
 				venue: '',
 				playersOnField: 3,
 				cards,
+				doubleGoals: true,
 				pointsWin: 3,
 				pointsDraw: 1,
 				pointsLoss: 0,

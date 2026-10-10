@@ -23,7 +23,8 @@ export const actions: Actions = {
 				location: text(form, 'location'),
 				venue: text(form, 'venue'),
 				playersOnField: integer(form, 'playersOnField'),
-				cards: texts(form, 'cards')
+				cards: texts(form, 'cards'),
+				doubleGoals: form.has('doubleGoals')
 			});
 			return { message: 'Configuración guardada' };
 		});

@@ -110,6 +110,8 @@ export interface Tournament {
 	playersOnField: number;
 	/** The cards the league shows, mildest first. A league can do without some of them. */
 	cards: CardType[];
+	/** Whether a goal can be recorded as worth two, for leagues that reward long-range strikes. */
+	doubleGoals: boolean;
 	pointsWin: number;
 	pointsDraw: number;
 	pointsLoss: number;

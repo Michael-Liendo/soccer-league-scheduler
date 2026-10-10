@@ -81,6 +81,8 @@ export interface SettingsInput {
 	playersOnField: number;
 	/** The cards the league uses. Left out, the ones it already has stay. */
 	cards?: readonly string[];
+	/** Whether goals worth two can be recorded. Left out, it stays as it is. */
+	doubleGoals?: boolean;
 }
 
 export interface PlanDayInput {
@@ -275,6 +277,7 @@ export function createLeagueStore(db: Db, clock: Clock = systemClock) {
 			venue: row.venue,
 			playersOnField: row.playersOnField,
 			cards: CARD_TYPES.filter((card) => row.cards.split(',').includes(card)),
+			doubleGoals: row.doubleGoals,
 			pointsWin: row.pointsWin,
 			pointsDraw: row.pointsDraw,
 			pointsLoss: row.pointsLoss,
@@ -521,7 +524,8 @@ export function createLeagueStore(db: Db, clock: Clock = systemClock) {
 				// Stored in order of severity whatever order they arrive in; anything unknown is dropped.
 				...(input.cards === undefined
 					? {}
-					: { cards: CARD_TYPES.filter((card) => input.cards?.includes(card)).join(',') })
+					: { cards: CARD_TYPES.filter((card) => input.cards?.includes(card)).join(',') }),
+				...(input.doubleGoals === undefined ? {} : { doubleGoals: input.doubleGoals })
 			};
 			db.update(tournament)
 				.set({ ...values, updatedAt: clock.now() })
@@ -922,8 +926,12 @@ export function createLeagueStore(db: Db, clock: Clock = systemClock) {
 
 			return db.transaction((tx) => {
 				const match = requirePlayableMatch(tx, matchId);
-				if (isCard(input.type) && !readTournament(tx).cards.includes(input.type)) {
+				const rules = readTournament(tx);
+				if (isCard(input.type) && !rules.cards.includes(input.type)) {
 					throw new LeagueError('Esa tarjeta no se usa en esta copa.');
+				}
+				if (input.type === 'double_goal' && !rules.doubleGoals) {
+					throw new LeagueError('En esta copa ningún gol vale doble.');
 				}
 				const isHome = input.teamId === match.homeTeamId;
 				if (!isHome && input.teamId !== match.awayTeamId) {

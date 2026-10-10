@@ -208,13 +208,15 @@
 					>
 						<Icon name="ball" size={18} /> Gol
 					</button>
-					<button
-						type="button"
-						class="btn double"
-						onclick={() => (picking = { teamId: team.id, type: 'double_goal' })}
-					>
-						Gol doble <span class="times">×2</span>
-					</button>
+					{#if league.tournament.doubleGoals}
+						<button
+							type="button"
+							class="btn double"
+							onclick={() => (picking = { teamId: team.id, type: 'double_goal' })}
+						>
+							Gol doble <span class="times">×2</span>
+						</button>
+					{/if}
 					{#if league.tournament.cards.length > 0}
 						<div class="cards">
 							{#each league.tournament.cards as card (card)}

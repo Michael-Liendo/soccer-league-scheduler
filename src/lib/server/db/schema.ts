@@ -9,6 +9,7 @@ export const tournament = sqliteTable('tournament', {
 	playersOnField: integer('players_on_field').notNull().default(3),
 	/** The cards the league uses, separated by commas: any of `yellow`, `blue` and `red`. */
 	cards: text('cards').notNull().default('yellow,blue,red'),
+	doubleGoals: integer('double_goals', { mode: 'boolean' }).notNull().default(true),
 	pointsWin: integer('points_win').notNull().default(3),
 	pointsDraw: integer('points_draw').notNull().default(1),
 	pointsLoss: integer('points_loss').notNull().default(0),

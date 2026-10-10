@@ -505,6 +505,19 @@ describe('recording results', () => {
 		).toThrow(/a quién se le mostró/);
 	});
 
+	it('refuses a double goal when the league does not have them', () => {
+		const { homeId, scorer, matchId } = kickOff();
+		const { name, location, venue, playersOnField } = store.getLeague().tournament;
+		expect(store.getLeague().tournament.doubleGoals).toBe(true);
+		store.updateSettings({ name, location, venue, playersOnField, doubleGoals: false });
+
+		expect(() =>
+			store.addMatchEvent(matchId, { teamId: homeId, playerId: scorer, type: 'double_goal' })
+		).toThrow(/ningún gol vale doble/);
+		store.addMatchEvent(matchId, { teamId: homeId, playerId: scorer, type: 'goal' });
+		expect(theMatch()).toMatchObject({ homeScore: 1 });
+	});
+
 	it('refuses a card the league does not use', () => {
 		const { awayId, keeper, matchId } = kickOff();
 		const { name, location, venue, playersOnField } = store.getLeague().tournament;
