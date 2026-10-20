@@ -5,6 +5,8 @@
 	import { formatDate, todayIso } from '#lib/league/format.ts';
 	import { CARD_LABELS } from '#lib/league/labels.ts';
 	import { CARD_TYPES, LIMITS } from '#lib/league/types.ts';
+	import { podium } from '#lib/league/playoffs.ts';
+	import { computeStandings } from '#lib/league/standings.ts';
 	import { fairPlayLegend } from '#lib/league/view.ts';
 	import Dialog from '#lib/ui/Dialog.svelte';
 	import { withFeedback } from '#lib/ui/forms.ts';
@@ -20,6 +22,14 @@
 	}
 
 	const tournament = $derived(data.league.tournament);
+	/** Who the results say won, to fill in the champion when the tournament is closed. */
+	const suggestedChampion = $derived.by(() => {
+		const league = data.league;
+		const id =
+			podium(league)?.champion ??
+			computeStandings(league.teams, league.matches, league.tournament)[0]?.teamId;
+		return league.teams.find((team) => team.id === id)?.name ?? '';
+	});
 	let confirmingReset = $state(false);
 	/** The code that was just created. It is shown once and never again. */
 	let created = $state<NewCode | null>(null);
@@ -223,6 +233,48 @@
 					Enviar por WhatsApp
 				</a>
 			</div>
+		</section>
+
+		<section class="panel">
+			<h2 class="panel-title">Terminar el torneo</h2>
+			<p class="help">
+				Guarda la tabla, los goleadores y los resultados en el historial, y deja la liga lista para
+				el próximo: borra el calendario y los resultados, pero mantiene los equipos y la
+				configuración.
+			</p>
+			<form class="stack" method="POST" action="?/finish" use:enhance={withFeedback()}>
+				<label class="field">
+					<span class="field-label">Nombre para el historial</span>
+					<input
+						class="input"
+						name="title"
+						value="{tournament.name} · {formatDate(todayIso(), 'medium')}"
+						maxlength={LIMITS.leagueName}
+						required
+					/>
+				</label>
+				<label class="field">
+					<span class="field-label">Campeón</span>
+					<input
+						class="input"
+						name="champion"
+						value={suggestedChampion}
+						maxlength={LIMITS.teamName}
+					/>
+					<span class="help">Cámbialo si se definió en una final que no está en la app.</span>
+				</label>
+				<div class="btn-row">
+					<button
+						class="btn btn-primary"
+						onclick={(event) => {
+							if (!confirm('¿Guardar en el historial y borrar el calendario y los resultados?'))
+								event.preventDefault();
+						}}
+					>
+						Guardar en el historial y empezar de nuevo
+					</button>
+				</div>
+			</form>
 		</section>
 
 		<section class="panel">

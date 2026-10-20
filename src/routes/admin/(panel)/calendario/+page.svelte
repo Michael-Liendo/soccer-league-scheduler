@@ -1,6 +1,11 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
+	import { enhance } from '$app/forms';
 	import PlannerForm from '#lib/admin/PlannerForm.svelte';
+	import { PLAYOFF_DESCRIPTIONS, PLAYOFF_LABELS, STAGE_LABELS } from '#lib/league/labels.ts';
+	import { nextPlayoffRound } from '#lib/league/playoffs.ts';
+	import { PLAYOFF_FORMATS } from '#lib/league/types.ts';
+	import { submitOnChange, withFeedback } from '#lib/ui/forms.ts';
 	import { formatDate, plural } from '#lib/league/format.ts';
 	import { LEG_LABELS } from '#lib/league/labels.ts';
 	import { gamesPerTeamByDay, isScheduleOutdated } from '#lib/league/schedule.ts';
@@ -11,6 +16,8 @@
 	const league = $derived(data.league);
 	const teamIds = $derived(league.teams.map((team) => team.id));
 	const outdated = $derived(isScheduleOutdated(teamIds, league.tournament.legs, league.matches));
+	const knockoutMatches = $derived(league.matches.filter((match) => match.stage !== 'league'));
+	const nextStep = $derived(nextPlayoffRound(league));
 	const gamesByTeam = $derived(
 		gamesPerTeamByDay(
 			teamIds,
@@ -45,6 +52,76 @@
 			<p>Solo el administrador puede cambiar los días, el horario o rehacer el calendario.</p>
 		</div>
 	{/if}
+
+	<section class="panel">
+		<div class="panel-head">
+			<div>
+				<h2 class="panel-title">Fase final</h2>
+				<p class="help">
+					Lo que se juega después de la liga. El mejor ubicado en la tabla juega de local y, si
+					empatan, pasa él.
+				</p>
+			</div>
+		</div>
+		<form class="formats" method="POST" action="?/savePlayoff" use:enhance={withFeedback()}>
+			{#each PLAYOFF_FORMATS as format (format)}
+				<label class="format">
+					<input
+						type="radio"
+						name="playoff"
+						value={format}
+						checked={league.tournament.playoff === format}
+						disabled={!data.isOwner || knockoutMatches.length > 0}
+						onchange={submitOnChange}
+					/>
+					<span>
+						<strong>{PLAYOFF_LABELS[format]}</strong>
+						<span class="help">{PLAYOFF_DESCRIPTIONS[format]}</span>
+					</span>
+				</label>
+			{/each}
+		</form>
+		{#if league.tournament.playoff !== 'none'}
+			<div class="btn-row">
+				{#if nextStep && 'round' in nextStep}
+					<form method="POST" action="?/createPlayoffRound" use:enhance={withFeedback()}>
+						<button class="btn btn-primary">
+							Armar {nextStep.round.stage === 'final' ? 'la final' : 'las semifinales'}
+						</button>
+					</form>
+				{:else if nextStep && 'waiting' in nextStep}
+					<p class="help">{nextStep.waiting}</p>
+				{:else}
+					<p class="help">La fase final ya está armada.</p>
+				{/if}
+				{#if knockoutMatches.length > 0 && data.isOwner}
+					<form method="POST" action="?/removePlayoffs" use:enhance={withFeedback()}>
+						<button
+							class="btn btn-danger"
+							onclick={(event) => {
+								if (!confirm('¿Borrar las semifinales y la final, con sus resultados?'))
+									event.preventDefault();
+							}}
+						>
+							Borrar fase final
+						</button>
+					</form>
+				{/if}
+			</div>
+			{#if knockoutMatches.length > 0}
+				<ul class="knockout">
+					{#each knockoutMatches as match (match.id)}
+						<li>
+							<strong>{STAGE_LABELS[match.stage]}</strong>:
+							{league.teams.find((team) => team.id === match.homeTeamId)?.name} vs
+							{league.teams.find((team) => team.id === match.awayTeamId)?.name}
+							{#if match.status === 'finished'}({match.homeScore}–{match.awayScore}){/if}
+						</li>
+					{/each}
+				</ul>
+			{/if}
+		{/if}
+	</section>
 
 	<section class="panel">
 		<div class="panel-head">
@@ -120,6 +197,29 @@
 		align-items: center;
 		gap: 10px;
 		font-weight: 600;
+	}
+
+	.formats {
+		display: flex;
+		flex-direction: column;
+		gap: 10px;
+	}
+
+	.format {
+		display: flex;
+		align-items: flex-start;
+		gap: 10px;
+		cursor: pointer;
+	}
+
+	.format > span {
+		display: flex;
+		flex-direction: column;
+	}
+
+	.knockout {
+		margin: 12px 0 0;
+		padding-left: 1.2em;
 	}
 
 	.total {

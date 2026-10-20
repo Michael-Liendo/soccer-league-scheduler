@@ -1,7 +1,8 @@
 /** Helpers that shape league data for the screens. All pure, so they run the same on both sides. */
 import { capitalize, formatDate, formatDateRange, plural } from './format.ts';
 import { CARD_LABELS } from './labels.ts';
-import { champion, FAIR_PLAY_POINTS } from './standings.ts';
+import { podium } from './playoffs.ts';
+import { FAIR_PLAY_POINTS } from './standings.ts';
 import {
 	CARD_COUNTERS,
 	CARD_TYPES,
@@ -73,8 +74,8 @@ export function leaguePhase(league: League, today: string): string {
 
 	const pending = league.matches.filter((match) => match.status !== 'finished');
 	if (pending.length === 0) {
-		const winner = champion(league);
-		const name = league.teams.find((team) => team.id === winner?.teamId)?.name;
+		const winner = podium(league);
+		const name = league.teams.find((team) => team.id === winner?.champion)?.name;
 		return name ? `Campeón: ${name}` : 'Torneo terminado';
 	}
 

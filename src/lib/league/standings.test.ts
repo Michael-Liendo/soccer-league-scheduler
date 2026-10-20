@@ -73,6 +73,7 @@ function match(
 		clockStartedAt: null,
 		clockElapsedMs: 0,
 		forfeitedBy: null,
+		stage: 'league',
 		events
 	};
 }

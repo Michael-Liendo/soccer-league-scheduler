@@ -10,6 +10,8 @@ export const tournament = sqliteTable('tournament', {
 	/** The cards the league uses, separated by commas: any of `yellow`, `blue` and `red`. */
 	cards: text('cards').notNull().default('yellow,blue,red'),
 	doubleGoals: integer('double_goals', { mode: 'boolean' }).notNull().default(true),
+	/** `none`, `final` or `semifinals`: the knockout rounds played after the league. */
+	playoff: text('playoff').notNull().default('none'),
 	pointsWin: integer('points_win').notNull().default(3),
 	pointsDraw: integer('points_draw').notNull().default(1),
 	pointsLoss: integer('points_loss').notNull().default(0),
@@ -84,6 +86,8 @@ export const matches = sqliteTable(
 		clockElapsedMs: integer('clock_elapsed_ms').notNull().default(0),
 		/** `home` or `away`: the side that did not show up, when the match was awarded unplayed. */
 		forfeitedBy: text('forfeited_by'),
+		/** `league`, `semifinal` or `final`. Only league matches count for the table. */
+		stage: text('stage').notNull().default('league'),
 		updatedAt: integer('updated_at').notNull()
 	},
 	(table) => [index('matches_day_idx').on(table.matchDayId)]
@@ -113,6 +117,15 @@ export const matchEvents = sqliteTable(
  * Extra codes handed out by the owner so helpers can run matches. Only a hash of each code is
  * kept. Deleting a row ends that helper's access at once.
  */
+/** Finished tournaments, kept as a snapshot of their final table, scorers and results. */
+export const archives = sqliteTable('archives', {
+	id: integer('id').primaryKey({ autoIncrement: true }),
+	title: text('title').notNull(),
+	/** JSON: see `ArchivedTournament` in `#lib/league/archive.ts`. */
+	data: text('data').notNull(),
+	createdAt: integer('created_at').notNull()
+});
+
 /** People who signed up through the public link to play in the next draw. */
 export const registrations = sqliteTable(
 	'registrations',

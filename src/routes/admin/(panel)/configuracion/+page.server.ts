@@ -53,6 +53,18 @@ export const actions: Actions = {
 		});
 	},
 
+	/** Keeps the tournament in the history and clears the calendar for the next one. */
+	finish: async ({ request, locals }) => {
+		requireAdmin(locals);
+		const form = await request.formData();
+		return attempt(() => {
+			requireOwner(locals);
+			league().archiveTournament(text(form, 'title'), text(form, 'champion'));
+			league().clearSchedule();
+			return { message: 'Torneo guardado en el historial' };
+		});
+	},
+
 	reset: async ({ locals }) => {
 		requireAdmin(locals);
 		return attempt(() => {

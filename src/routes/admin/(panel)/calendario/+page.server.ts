@@ -2,6 +2,7 @@ import { plural } from '#lib/league/format.ts';
 import { attempt, integer, text, texts, toInteger } from '#lib/server/forms.ts';
 import { league } from '#lib/server/league.ts';
 import { requireAdmin, requireOwner } from '#lib/server/session.ts';
+import type { PlayoffFormat } from '#lib/league/types.ts';
 import type { PlanInput } from '#lib/server/league-store.ts';
 import type { Actions } from './$types';
 
@@ -62,6 +63,34 @@ export const actions: Actions = {
 			});
 			const total = plural(matchCount, 'partido');
 			return { message: `Calendario ${random ? 'sorteado' : 'generado'}: ${total}` };
+		});
+	},
+
+	savePlayoff: async ({ request, locals }) => {
+		requireAdmin(locals);
+		const form = await request.formData();
+		return attempt(() => {
+			requireOwner(locals);
+			league().setPlayoffFormat(text(form, 'playoff') as PlayoffFormat);
+			return { message: 'Fase final guardada' };
+		});
+	},
+
+	/** Helpers may do this too: on the night the owner may not be there. */
+	createPlayoffRound: async ({ locals }) => {
+		requireAdmin(locals);
+		return attempt(() => {
+			const { stage } = league().createPlayoffRound();
+			return { message: stage === 'final' ? 'Final armada' : 'Semifinales armadas' };
+		});
+	},
+
+	removePlayoffs: async ({ locals }) => {
+		requireAdmin(locals);
+		return attempt(() => {
+			requireOwner(locals);
+			league().removePlayoffs();
+			return { message: 'Fase final borrada' };
 		});
 	},
 

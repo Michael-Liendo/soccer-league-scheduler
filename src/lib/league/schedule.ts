@@ -345,6 +345,7 @@ export function buildSchedule({
 interface PlayedMatch {
 	homeTeamId: number;
 	awayTeamId: number;
+	stage?: string;
 }
 
 /**
@@ -354,8 +355,10 @@ interface PlayedMatch {
 export function isScheduleOutdated(
 	teamIds: readonly number[],
 	legs: number,
-	matches: readonly PlayedMatch[]
+	allMatches: readonly PlayedMatch[]
 ): boolean {
+	// Knockout rounds come on top of the league calendar and do not change its size.
+	const matches = allMatches.filter((match) => (match.stage ?? 'league') === 'league');
 	if (matches.length === 0) return false;
 	if (matches.length !== totalMatches(teamIds.length, legs)) return true;
 	const withMatches = new Set(matches.flatMap((match) => [match.homeTeamId, match.awayTeamId]));

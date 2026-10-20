@@ -35,6 +35,18 @@ export function isCard(type: MatchEventType): type is CardType {
 /** The counter each card adds to in the tallies kept per team and per player. */
 export const CARD_COUNTERS = { yellow: 'yellows', blue: 'blues', red: 'reds' } as const;
 
+/** The part of the tournament a match belongs to: the league table or a knockout round. */
+export const STAGES = ['league', 'semifinal', 'final'] as const;
+export type Stage = (typeof STAGES)[number];
+export type KnockoutStage = Exclude<Stage, 'league'>;
+
+/**
+ * What follows the league: nothing, a final between the top two, or semifinals (first against
+ * fourth, second against third) and a final.
+ */
+export const PLAYOFF_FORMATS = ['none', 'final', 'semifinals'] as const;
+export type PlayoffFormat = (typeof PLAYOFF_FORMATS)[number];
+
 export const SIDES = ['home', 'away'] as const;
 export type Side = (typeof SIDES)[number];
 
@@ -99,6 +111,7 @@ export interface Match {
 	clockElapsedMs: number;
 	/** The side that did not show up, when the match was awarded to its rival without playing. */
 	forfeitedBy: Side | null;
+	stage: Stage;
 	events: MatchEvent[];
 }
 
@@ -112,6 +125,7 @@ export interface Tournament {
 	cards: CardType[];
 	/** Whether a goal can be recorded as worth two, for leagues that reward long-range strikes. */
 	doubleGoals: boolean;
+	playoff: PlayoffFormat;
 	pointsWin: number;
 	pointsDraw: number;
 	pointsLoss: number;

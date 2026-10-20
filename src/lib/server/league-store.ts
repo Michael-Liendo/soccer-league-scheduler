@@ -1,4 +1,4 @@
-import { asc, count, eq, max } from 'drizzle-orm';
+import { asc, count, desc, eq, max, ne } from 'drizzle-orm';
 import {
 	formatDate,
 	isClockTime,
@@ -10,8 +10,12 @@ import {
 import { elapsedMs, MAX_CLOCK_MS, minuteOfPlay } from '#lib/league/clock.ts';
 import { nextTeamColor } from '#lib/league/labels.ts';
 import { buildSchedule, slotTime, totalMatches, type PlanTiming } from '#lib/league/schedule.ts';
+import { archiveSnapshot, type ArchivedTournament } from '#lib/league/archive.ts';
+import { nextPlayoffRound } from '#lib/league/playoffs.ts';
 import {
 	CARD_TYPES,
+	PLAYOFF_FORMATS,
+	STAGES,
 	FORFEIT_GOALS,
 	goalValue,
 	isCard,
@@ -26,6 +30,7 @@ import {
 	type MatchEventType,
 	type MatchStatus,
 	type Player,
+	type PlayoffFormat,
 	type Position,
 	type Side,
 	type Team,
@@ -34,6 +39,7 @@ import {
 import type { Db } from './db/client.ts';
 import {
 	accessCodes,
+	archives,
 	matchDays,
 	matchEvents,
 	matches,
@@ -51,6 +57,11 @@ const HEX_COLOR = /^#[0-9a-f]{6}$/i;
 /** Enough for a big group signing up in one go, small enough to keep spam in check. */
 const MAX_REGISTRATIONS_AT_ONCE = 10;
 const MAX_REGISTRATIONS = 200;
+
+export interface ArchiveEntry extends ArchivedTournament {
+	id: number;
+	createdAt: number;
+}
 
 export interface Registration {
 	id: number;
@@ -288,6 +299,7 @@ export function createLeagueStore(db: Db, clock: Clock = systemClock) {
 			playersOnField: row.playersOnField,
 			cards: CARD_TYPES.filter((card) => row.cards.split(',').includes(card)),
 			doubleGoals: row.doubleGoals,
+			playoff: (isOneOf(PLAYOFF_FORMATS, row.playoff) ? row.playoff : 'none') as PlayoffFormat,
 			pointsWin: row.pointsWin,
 			pointsDraw: row.pointsDraw,
 			pointsLoss: row.pointsLoss,
@@ -502,6 +514,7 @@ export function createLeagueStore(db: Db, clock: Clock = systemClock) {
 					clockStartedAt: row.clockStartedAt,
 					clockElapsedMs: row.clockElapsedMs,
 					forfeitedBy: isOneOf(SIDES, row.forfeitedBy) ? row.forfeitedBy : null,
+					stage: isOneOf(STAGES, row.stage) ? row.stage : 'league',
 					events: eventsByMatch.get(row.id) ?? []
 				}))
 				.sort(
@@ -1214,6 +1227,112 @@ export function createLeagueStore(db: Db, clock: Clock = systemClock) {
 				createdAt: found.createdAt,
 				lastUsedAt: found.lastUsedAt
 			};
+		},
+
+		/** Chooses what follows the league. It cannot change once knockout matches exist. */
+		setPlayoffFormat(format: PlayoffFormat): void {
+			if (!isOneOf(PLAYOFF_FORMATS, format)) throw new LeagueError('Ese formato no es válido.');
+			db.transaction((tx) => {
+				const knockout = tx
+					.select({ id: matches.id })
+					.from(matches)
+					.where(ne(matches.stage, 'league'))
+					.get();
+				if (knockout) {
+					throw new LeagueError('Borra la fase final antes de cambiar el formato.');
+				}
+				tx.update(tournament)
+					.set({ playoff: format, updatedAt: clock.now() })
+					.where(eq(tournament.id, TOURNAMENT_ID))
+					.run();
+			});
+		},
+
+		/**
+		 * Sets up the next knockout round from the table: the semifinals, or the final. Its
+		 * matches go right after the last league match, on the same day.
+		 */
+		createPlayoffRound(): { stage: string; count: number } {
+			const step = nextPlayoffRound(this.getLeague());
+			if (step === null) throw new LeagueError('No hay ninguna ronda por armar.');
+			if ('waiting' in step) throw new LeagueError(step.waiting);
+			const { round } = step;
+			return db.transaction((tx) => {
+				const all = tx.select().from(matches).all();
+				const days = new Map(
+					tx
+						.select()
+						.from(matchDays)
+						.all()
+						.map((day) => [day.id, day.date])
+				);
+				const last = [...all].sort(
+					(a, b) =>
+						(days.get(a.matchDayId) ?? '').localeCompare(days.get(b.matchDayId) ?? '') ||
+						a.slot - b.slot
+				)[all.length - 1];
+				if (!last) throw new LeagueError('Primero arma el calendario de la liga.');
+				const timing = readTiming(tx);
+				const firstSlot =
+					Math.max(...all.filter((m) => m.matchDayId === last.matchDayId).map((m) => m.slot)) + 1;
+				const nextRound = Math.max(...all.map((m) => m.round)) + 1;
+				const now = clock.now();
+				tx.insert(matches)
+					.values(
+						round.pairs.map((pair, index) => ({
+							matchDayId: last.matchDayId,
+							round: nextRound,
+							leg: 1,
+							slot: firstSlot + index,
+							time: slotTime(firstSlot + index, timing),
+							homeTeamId: pair.homeId,
+							awayTeamId: pair.awayId,
+							stage: round.stage,
+							updatedAt: now
+						}))
+					)
+					.run();
+				touch(tx);
+				return { stage: round.stage, count: round.pairs.length };
+			});
+		},
+
+		/** Removes the semifinals and the final, with their results. The league stays. */
+		removePlayoffs(): void {
+			db.transaction((tx) => {
+				tx.delete(matches).where(ne(matches.stage, 'league')).run();
+				touch(tx);
+			});
+		},
+
+		/** Keeps the finished tournament in the history. `champion` overrides the results. */
+		archiveTournament(title: string, championName: string): number {
+			const name = requireText(title, 'el nombre del torneo', LIMITS.leagueName);
+			const champion = cleanText(championName).slice(0, LIMITS.teamName) || null;
+			const snapshot = archiveSnapshot(this.getLeague(), name, champion);
+			return db
+				.insert(archives)
+				.values({ title: name, data: JSON.stringify(snapshot), createdAt: clock.now() })
+				.returning({ id: archives.id })
+				.get().id;
+		},
+
+		/** Past tournaments, the newest first. */
+		listArchives(): ArchiveEntry[] {
+			return db
+				.select()
+				.from(archives)
+				.orderBy(desc(archives.id))
+				.all()
+				.map((row) => ({
+					...(JSON.parse(row.data) as ArchivedTournament),
+					id: row.id,
+					createdAt: row.createdAt
+				}));
+		},
+
+		deleteArchive(id: number): void {
+			db.delete(archives).where(eq(archives.id, id)).run();
 		},
 
 		clearSchedule(): void {

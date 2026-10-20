@@ -14,7 +14,8 @@
 		{ path: 'partidos', label: 'Partidos' },
 		{ path: 'estadisticas', label: 'Estadísticas' },
 		{ path: 'equipos', label: 'Equipos' },
-		{ path: 'registro', label: 'Registro' }
+		{ path: 'registro', label: 'Registro' },
+		{ path: 'historial', label: 'Historial' }
 	];
 
 	const POLL_INTERVAL_MS = 20_000;

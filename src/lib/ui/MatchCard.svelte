@@ -2,7 +2,7 @@
 	import type { Snippet } from 'svelte';
 	import { hasClockStarted, minuteOfPlay } from '#lib/league/clock.ts';
 	import { formatTime } from '#lib/league/format.ts';
-	import { STATUS_LABELS } from '#lib/league/labels.ts';
+	import { STAGE_LABELS, STATUS_LABELS } from '#lib/league/labels.ts';
 	import type { Match, Team } from '#lib/league/types.ts';
 	import { eventsByPlayer, goalsLabel, rosterLine, type PlayerEvents } from '#lib/league/view.ts';
 	import Icon from './Icon.svelte';
@@ -47,6 +47,9 @@
 	<div class="meta">
 		<div class="when">
 			{#if order}<span class="order">Partido {order}</span>{/if}
+			{#if match.stage !== 'league'}
+				<span class="badge badge-accent">{STAGE_LABELS[match.stage]}</span>
+			{/if}
 			<span class="time">{match.time ? formatTime(match.time) : 'Sin hora'}</span>
 			{#if venue}<span>{venue}</span>{/if}
 		</div>

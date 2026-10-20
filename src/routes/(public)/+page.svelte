@@ -2,12 +2,8 @@
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { plural } from '#lib/league/format.ts';
-	import {
-		champion,
-		computePlayerStats,
-		computeStandings,
-		topScorers
-	} from '#lib/league/standings.ts';
+	import { podium } from '#lib/league/playoffs.ts';
+	import { computePlayerStats, computeStandings, topScorers } from '#lib/league/standings.ts';
 	import { teamsById } from '#lib/league/view.ts';
 	import FormChips from '#lib/ui/FormChips.svelte';
 	import ShareDialog from '#lib/ui/ShareDialog.svelte';
@@ -22,8 +18,8 @@
 	const table = $derived(computeStandings(league.teams, league.matches, league.tournament));
 	const scorers = $derived(topScorers(computePlayerStats(league.teams, league.matches)));
 	const played = $derived(league.matches.filter((match) => match.status === 'finished').length);
-	const winner = $derived(champion(league));
-	const winnerTeam = $derived(winner ? teams.get(winner.teamId) : undefined);
+	const places = $derived(podium(league));
+	const winnerTeam = $derived(places ? teams.get(places.champion) : undefined);
 
 	const signed = (value: number) => (value > 0 ? `+${value}` : String(value));
 
@@ -45,7 +41,7 @@
 {#if league.teams.length === 0}
 	<div class="empty">Todavía no hay equipos inscritos. Vuelve pronto.</div>
 {:else}
-	{#if winner && winnerTeam}
+	{#if places && winnerTeam}
 		<section class="champion" style:--team-color={winnerTeam.color}>
 			<svg class="trophy" viewBox="0 0 96 104" aria-hidden="true">
 				<path
@@ -66,16 +62,16 @@
 				<p class="champion-kicker">Campeón de {league.tournament.name}</p>
 				<p class="champion-name">{winnerTeam.name}</p>
 				<dl class="podium">
-					{#if table[1]}
+					{#if places?.runnerUp}
 						<div>
 							<dt>Subcampeón</dt>
-							<dd>{teams.get(table[1].teamId)?.name}</dd>
+							<dd>{teams.get(places.runnerUp)?.name}</dd>
 						</div>
 					{/if}
-					{#if table[2]}
+					{#if places?.third}
 						<div>
 							<dt>Tercer lugar</dt>
-							<dd>{teams.get(table[2].teamId)?.name}</dd>
+							<dd>{teams.get(places.third)?.name}</dd>
 						</div>
 					{/if}
 					{#if scorers[0]}

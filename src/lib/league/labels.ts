@@ -1,4 +1,4 @@
-import type { CardType, MatchStatus, Position } from './types.ts';
+import type { CardType, MatchStatus, PlayoffFormat, Position, Stage } from './types.ts';
 
 /** Text shown to people for the values the code keeps in English. */
 
@@ -13,6 +13,24 @@ export const STATUS_LABELS: Record<MatchStatus, string> = {
 	pending: 'Por jugar',
 	live: 'En vivo',
 	finished: 'Finalizado'
+};
+
+export const STAGE_LABELS: Record<Stage, string> = {
+	league: 'Liga',
+	semifinal: 'Semifinal',
+	final: 'Final'
+};
+
+export const PLAYOFF_LABELS: Record<PlayoffFormat, string> = {
+	none: 'Solo liga',
+	final: 'Liga y final',
+	semifinals: 'Liga, semifinales y final'
+};
+
+export const PLAYOFF_DESCRIPTIONS: Record<PlayoffFormat, string> = {
+	none: 'Gana el primero de la tabla.',
+	final: 'El 1.º y el 2.º de la tabla juegan la final.',
+	semifinals: 'Pasan los 4 primeros: 1.º contra 4.º y 2.º contra 3.º, y luego la final.'
 };
 
 export const CARD_LABELS: Record<CardType, string> = {

@@ -61,6 +61,7 @@ describe('what each player did in a match', () => {
 			clockStartedAt: null,
 			clockElapsedMs: 0,
 			forfeitedBy: null,
+			stage: 'league',
 			events: events.map(([playerId, type, minute], index) => ({
 				id: index + 1,
 				matchId: 1,
@@ -113,6 +114,7 @@ describe('the cards a league uses', () => {
 				playersOnField: 3,
 				cards,
 				doubleGoals: true,
+				playoff: 'none',
 				pointsWin: 3,
 				pointsDraw: 1,
 				pointsLoss: 0,
@@ -142,6 +144,7 @@ describe('the cards a league uses', () => {
 					clockStartedAt: null,
 					clockElapsedMs: 0,
 					forfeitedBy: null,
+					stage: 'league',
 					events: recorded.map((type, index) => ({
 						id: index + 1,
 						matchId: 1,

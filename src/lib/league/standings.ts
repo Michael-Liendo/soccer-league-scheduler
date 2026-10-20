@@ -62,8 +62,9 @@ export const FAIR_PLAY_POINTS = { yellow: 1, blue: 2, red: 3 } as const;
 
 type Scoring = Pick<League['tournament'], 'pointsWin' | 'pointsDraw' | 'pointsLoss'>;
 
+/** Finished league matches. Knockout rounds do not count for the table. */
 function finished(matches: readonly Match[]): Match[] {
-	return matches.filter((match) => match.status === 'finished');
+	return matches.filter((match) => match.status === 'finished' && match.stage === 'league');
 }
 
 export function fairPlayTable(teams: readonly Team[], matches: readonly Match[]): FairPlayRow[] {
@@ -246,9 +247,10 @@ export function defenseTable(teams: readonly Team[], matches: readonly Match[]):
 		);
 }
 
-/** The winner, once every match has been played. */
+/** The top of the table, once every league match has been played. */
 export function champion(league: League): StandingRow | null {
-	if (league.matches.length === 0) return null;
-	if (league.matches.some((match) => match.status !== 'finished')) return null;
+	const leagueMatches = league.matches.filter((match) => match.stage === 'league');
+	if (leagueMatches.length === 0) return null;
+	if (leagueMatches.some((match) => match.status !== 'finished')) return null;
 	return computeStandings(league.teams, league.matches, league.tournament)[0] ?? null;
 }

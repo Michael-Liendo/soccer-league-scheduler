@@ -827,3 +827,76 @@ describe('signing up to play', () => {
 		expect(store.listRegistrations()).toEqual([]);
 	});
 });
+
+describe('knockout rounds', () => {
+	/** Four teams, one leg, every league match won by the team with the lower id. */
+	function playLeague() {
+		const ids = addTeams(4);
+		store.generateSchedule({ legs: 1, matchesPerDay: [6, 0, 0, 0], random: false });
+		for (const match of store.getLeague().matches) {
+			const winner = Math.min(match.homeTeamId, match.awayTeamId);
+			store.addMatchEvent(match.id, { teamId: winner, playerId: null, type: 'goal' });
+			store.finishMatch(match.id);
+		}
+		return ids;
+	}
+
+	function knockout(stage: string) {
+		return store.getLeague().matches.filter((match) => match.stage === stage);
+	}
+
+	it('sets up the semifinals from the table and then the final from their winners', () => {
+		const [first, second, third, fourth] = playLeague();
+		store.setPlayoffFormat('semifinals');
+		expect(store.createPlayoffRound()).toEqual({ stage: 'semifinal', count: 2 });
+		expect(knockout('semifinal').map((m) => [m.homeTeamId, m.awayTeamId])).toEqual([
+			[first, fourth],
+			[second, third]
+		]);
+		expect(() => store.createPlayoffRound()).toThrow(/terminen las dos semifinales/);
+
+		const [upper, lower] = knockout('semifinal');
+		// A draw: the better-placed team goes through.
+		store.finishMatch(upper.id);
+		store.addMatchEvent(lower.id, { teamId: third, playerId: null, type: 'goal' });
+		store.finishMatch(lower.id);
+		store.createPlayoffRound();
+		expect(knockout('final').map((m) => [m.homeTeamId, m.awayTeamId])).toEqual([[first, third]]);
+		expect(() => store.createPlayoffRound()).toThrow(/ninguna ronda/);
+
+		// Knockout matches do not change the table.
+		const league = store.getLeague();
+		expect(computeStandings(league.teams, league.matches, league.tournament)[0]).toMatchObject({
+			teamId: first,
+			played: 3
+		});
+	});
+
+	it('waits for the league and keeps the format while knockout matches exist', () => {
+		addTeams(4);
+		store.generateSchedule({ legs: 1, matchesPerDay: [6, 0, 0, 0], random: false });
+		store.setPlayoffFormat('final');
+		expect(() => store.createPlayoffRound()).toThrow(/terminen todos los partidos/);
+		for (const match of store.getLeague().matches) store.finishMatch(match.id);
+		store.createPlayoffRound();
+		expect(knockout('final')).toHaveLength(1);
+		expect(() => store.setPlayoffFormat('none')).toThrow(/Borra la fase final/);
+		store.removePlayoffs();
+		expect(knockout('final')).toHaveLength(0);
+		store.setPlayoffFormat('none');
+	});
+
+	it('keeps a finished tournament in the history', () => {
+		const [first] = playLeague();
+		store.archiveTournament('Liga Caimán · 17 oct', '');
+		store.archiveTournament('Otra', 'Los Sin nombres');
+		const [latest, earlier] = store.listArchives();
+		expect(latest).toMatchObject({ title: 'Otra', champion: 'Los Sin nombres' });
+		expect(earlier).toMatchObject({ title: 'Liga Caimán · 17 oct', champion: 'Equipo 1' });
+		expect(earlier.table[0]).toMatchObject({ team: 'Equipo 1', points: 9 });
+		expect(earlier.results).toHaveLength(6);
+		expect(first).toBeGreaterThan(0);
+		store.deleteArchive(latest.id);
+		expect(store.listArchives()).toHaveLength(1);
+	});
+});
