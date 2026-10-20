@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import { page } from '$app/state';
 	import { formatDate } from '#lib/league/format.ts';
 	import { LIMITS } from '#lib/league/types.ts';
 	import Icon from '#lib/ui/Icon.svelte';
@@ -12,16 +13,21 @@
 	/** The next match day, which is what people are signing up for. */
 	const nextDay = $derived(data.league.matchDays.find((day) => day.date >= data.today));
 
-	/** One field per person being signed up; the keys only keep the list stable. */
-	let fields = $state([{ key: 0 }]);
-	let nextKey = 1;
+	const shareText = $derived(
+		`¿Vas a jugar en ${data.league.tournament.name}${nextDay ? ` el ${formatDate(nextDay.date, 'long')}` : ''}? Regístrate aquí: ${page.url.href}`
+	);
 
-	function addField() {
-		fields.push({ key: nextKey++ });
-	}
-
-	function removeField(key: number) {
-		fields = fields.filter((field) => field.key !== key);
+	/** Opens the phone's share sheet, or WhatsApp where there is none. */
+	async function shareLink() {
+		if (navigator.share) {
+			try {
+				await navigator.share({ text: shareText });
+			} catch {
+				// Closed without sharing.
+			}
+			return;
+		}
+		window.open(`https://wa.me/?text=${encodeURIComponent(shareText)}`, '_blank', 'noopener');
 	}
 
 	async function copyList() {
@@ -45,10 +51,7 @@
 		{#if nextDay}
 			<p class="when">Para el {formatDate(nextDay.date, 'long')}</p>
 		{/if}
-		<p class="help">
-			Aquí solo colocas el nombre de la persona que va a jugar. Si van a jugar más personas, toca
-			“Agregar otra persona” y te saldrá otro espacio.
-		</p>
+		<p class="help">Aquí solo colocas tu nombre.</p>
 		<p class="notice">
 			<strong>
 				Regístrate solo si vas a jugar y tocar la pelota. Si solo vas a arbitrar o a ver, no te
@@ -63,38 +66,29 @@
 			class="stack"
 			method="POST"
 			action="?/register"
-			use:enhance={withFeedback({ reset: true, onSuccess: () => (fields = [{ key: nextKey++ }]) })}
+			use:enhance={withFeedback({ reset: true })}
 		>
-			{#each fields as field, index (field.key)}
-				<div class="row">
-					<input
-						class="input"
-						name="name"
-						maxlength={LIMITS.playerName}
-						required={index === 0}
-						autocomplete="name"
-						placeholder="Nombre y apellido"
-						aria-label="Nombre de la persona {index + 1}"
-					/>
-					{#if fields.length > 1}
-						<button
-							type="button"
-							class="icon-btn"
-							aria-label="Quitar este espacio"
-							onclick={() => removeField(field.key)}
-						>
-							<Icon name="trash" />
-						</button>
-					{/if}
-				</div>
-			{/each}
+			<input
+				class="input"
+				name="name"
+				maxlength={LIMITS.playerName}
+				required
+				autocomplete="name"
+				placeholder="Nombre y apellido"
+				aria-label="Tu nombre"
+			/>
 			<div class="btn-row">
-				<button type="button" class="btn" onclick={addField} disabled={fields.length >= 10}>
-					<Icon name="plus" /> Agregar otra persona
-				</button>
 				<button class="btn btn-primary">Registrarme</button>
 			</div>
 		</form>
+	</section>
+
+	<section class="panel">
+		<h2 class="panel-title">¿Conoces a alguien que quiera jugar?</h2>
+		<p class="help">Compártele este link para que se registre él mismo.</p>
+		<div class="btn-row">
+			<button type="button" class="btn" onclick={shareLink}>Compartir link</button>
+		</div>
 	</section>
 
 	<section class="panel">
@@ -152,13 +146,6 @@
 		font-size: 1.2rem;
 		font-weight: 700;
 		color: var(--color-accent-text);
-	}
-
-	.row {
-		display: grid;
-		grid-template-columns: 1fr auto;
-		align-items: center;
-		gap: 8px;
 	}
 
 	.names {
