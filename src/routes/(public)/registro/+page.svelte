@@ -43,6 +43,12 @@
 			“Agregar otra persona” y te saldrá otro espacio.
 		</p>
 		<p class="notice">
+			<strong>
+				Regístrate solo si vas a jugar y tocar la pelota. Si solo vas a arbitrar o a ver, no te
+				registres.
+			</strong>
+		</p>
+		<p class="notice">
 			Recuerda: los equipos serán aleatorios, para que haya equilibrio y competitividad. Se
 			anunciarán cuando se haga el sorteo.
 		</p>
