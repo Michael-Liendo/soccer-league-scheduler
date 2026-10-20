@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import { formatDate } from '#lib/league/format.ts';
 	import { LIMITS } from '#lib/league/types.ts';
 	import Icon from '#lib/ui/Icon.svelte';
 	import { withFeedback } from '#lib/ui/forms.ts';
@@ -7,6 +8,9 @@
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
+
+	/** The next match day, which is what people are signing up for. */
+	const nextDay = $derived(data.league.matchDays.find((day) => day.date >= data.today));
 
 	/** One field per person being signed up; the keys only keep the list stable. */
 	let fields = $state([{ key: 0 }]);
@@ -38,6 +42,9 @@
 <div class="stack">
 	<section class="panel">
 		<h2 class="panel-title">Registro de persona que va a jugar</h2>
+		{#if nextDay}
+			<p class="when">Para el {formatDate(nextDay.date, 'long')}</p>
+		{/if}
 		<p class="help">
 			Aquí solo colocas el nombre de la persona que va a jugar. Si van a jugar más personas, toca
 			“Agregar otra persona” y te saldrá otro espacio.
@@ -138,6 +145,13 @@
 		display: flex;
 		flex-direction: column;
 		gap: 12px;
+	}
+
+	.when {
+		font-family: var(--font-display);
+		font-size: 1.2rem;
+		font-weight: 700;
+		color: var(--color-accent-text);
 	}
 
 	.row {
