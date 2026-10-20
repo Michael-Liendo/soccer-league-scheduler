@@ -42,6 +42,10 @@
 			Aquí solo colocas el nombre de la persona que va a jugar. Si van a jugar más personas, toca
 			“Agregar otra persona” y te saldrá otro espacio.
 		</p>
+		<p class="notice">
+			Recuerda: los equipos serán aleatorios, para que haya equilibrio y competitividad. Se
+			anunciarán cuando se haga el sorteo.
+		</p>
 		<form
 			class="stack"
 			method="POST"
