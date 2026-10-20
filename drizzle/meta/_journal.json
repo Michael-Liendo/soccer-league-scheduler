@@ -43,6 +43,13 @@
       "when": 1791666383853,
       "tag": "0005_double_goals",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1792514915357,
+      "tag": "0006_registrations",
+      "breakpoints": true
     }
   ]
 }

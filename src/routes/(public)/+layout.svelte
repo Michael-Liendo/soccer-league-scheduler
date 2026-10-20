@@ -13,7 +13,8 @@
 		{ path: '', label: 'Posiciones' },
 		{ path: 'partidos', label: 'Partidos' },
 		{ path: 'estadisticas', label: 'Estadísticas' },
-		{ path: 'equipos', label: 'Equipos' }
+		{ path: 'equipos', label: 'Equipos' },
+		{ path: 'registro', label: 'Registro' }
 	];
 
 	const POLL_INTERVAL_MS = 20_000;

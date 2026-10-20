@@ -113,6 +113,17 @@ export const matchEvents = sqliteTable(
  * Extra codes handed out by the owner so helpers can run matches. Only a hash of each code is
  * kept. Deleting a row ends that helper's access at once.
  */
+/** People who signed up through the public link to play in the next draw. */
+export const registrations = sqliteTable(
+	'registrations',
+	{
+		id: integer('id').primaryKey({ autoIncrement: true }),
+		name: text('name').notNull(),
+		createdAt: integer('created_at').notNull()
+	},
+	(table) => [uniqueIndex('registrations_name_unique').on(table.name)]
+);
+
 export const accessCodes = sqliteTable(
 	'access_codes',
 	{

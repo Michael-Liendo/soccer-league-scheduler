@@ -38,6 +38,7 @@ import {
 	matchEvents,
 	matches,
 	players,
+	registrations,
 	teams,
 	tournament
 } from './db/schema.ts';
@@ -47,6 +48,15 @@ const TOURNAMENT_ID = 1;
 const SATURDAY = 6;
 const DEFAULT_MATCH_DAY_COUNT = 4;
 const HEX_COLOR = /^#[0-9a-f]{6}$/i;
+/** Enough for a big group signing up in one go, small enough to keep spam in check. */
+const MAX_REGISTRATIONS_AT_ONCE = 10;
+const MAX_REGISTRATIONS = 200;
+
+export interface Registration {
+	id: number;
+	name: string;
+	createdAt: number;
+}
 
 const DEFAULT_TOURNAMENT = {
 	name: 'Copa Naiguatá',
@@ -1076,6 +1086,71 @@ export function createLeagueStore(db: Db, clock: Clock = systemClock) {
 					.run();
 				touch(tx);
 			});
+		},
+
+		/** Everyone who signed up to play, in the order they did. */
+		listRegistrations(): Registration[] {
+			return db
+				.select({
+					id: registrations.id,
+					name: registrations.name,
+					createdAt: registrations.createdAt
+				})
+				.from(registrations)
+				.orderBy(asc(registrations.id))
+				.all();
+		},
+
+		/**
+		 * Signs people up. Names already on the list, ignoring capitalisation and spacing, are
+		 * skipped and reported back.
+		 */
+		addRegistrations(names: readonly string[]): { added: string[]; skipped: string[] } {
+			const wanted = names.map(cleanText).filter((name) => name.length > 0);
+			if (wanted.length === 0) throw new LeagueError('Escribe al menos un nombre.');
+			if (wanted.length > MAX_REGISTRATIONS_AT_ONCE) {
+				throw new LeagueError(
+					`Puedes anotar hasta ${MAX_REGISTRATIONS_AT_ONCE} personas a la vez.`
+				);
+			}
+			const tooLong = wanted.find((name) => name.length > LIMITS.playerName);
+			if (tooLong) {
+				throw new LeagueError(`Cada nombre puede tener hasta ${LIMITS.playerName} caracteres.`);
+			}
+			return db.transaction((tx) => {
+				const taken = new Set(
+					tx
+						.select({ name: registrations.name })
+						.from(registrations)
+						.all()
+						.map((row) => row.name.toLocaleLowerCase('es'))
+				);
+				if (taken.size + wanted.length > MAX_REGISTRATIONS) {
+					throw new LeagueError('La lista ya está llena.');
+				}
+				const added: string[] = [];
+				const skipped: string[] = [];
+				const now = clock.now();
+				for (const name of wanted) {
+					const key = name.toLocaleLowerCase('es');
+					if (taken.has(key)) {
+						skipped.push(name);
+						continue;
+					}
+					tx.insert(registrations).values({ name, createdAt: now }).run();
+					taken.add(key);
+					added.push(name);
+				}
+				return { added, skipped };
+			});
+		},
+
+		removeRegistration(id: number): void {
+			db.delete(registrations).where(eq(registrations.id, id)).run();
+		},
+
+		clearRegistrations(): void {
+			db.delete(registrations).run();
 		},
 
 		listAccessCodes(): AccessCode[] {

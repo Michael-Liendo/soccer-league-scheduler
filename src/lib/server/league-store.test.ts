@@ -792,3 +792,38 @@ describe('helper access codes', () => {
 		expect(store.listAccessCodes()).toHaveLength(1);
 	});
 });
+
+describe('signing up to play', () => {
+	it('keeps the names in order and skips the ones already on the list', () => {
+		expect(store.addRegistrations([' Luis  Marcano ', 'Ana', ''])).toEqual({
+			added: ['Luis Marcano', 'Ana'],
+			skipped: []
+		});
+		expect(store.addRegistrations(['ana', 'Pedro'])).toEqual({
+			added: ['Pedro'],
+			skipped: ['ana']
+		});
+		expect(store.listRegistrations().map((entry) => entry.name)).toEqual([
+			'Luis Marcano',
+			'Ana',
+			'Pedro'
+		]);
+	});
+
+	it('needs a name and limits how many come at once', () => {
+		expect(() => store.addRegistrations(['  '])).toThrow(/al menos un nombre/);
+		expect(() => store.addRegistrations(Array.from({ length: 11 }, (_, i) => `P${i}`))).toThrow(
+			/hasta 10/
+		);
+		expect(() => store.addRegistrations(['x'.repeat(41)])).toThrow(/40 caracteres/);
+	});
+
+	it('removes one name or the whole list', () => {
+		store.addRegistrations(['Ana', 'Luis']);
+		const [ana] = store.listRegistrations();
+		store.removeRegistration(ana.id);
+		expect(store.listRegistrations().map((entry) => entry.name)).toEqual(['Luis']);
+		store.clearRegistrations();
+		expect(store.listRegistrations()).toEqual([]);
+	});
+});
