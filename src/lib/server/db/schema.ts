@@ -12,6 +12,7 @@ export const tournament = sqliteTable('tournament', {
 	doubleGoals: integer('double_goals', { mode: 'boolean' }).notNull().default(true),
 	/** `none`, `final` or `semifinals`: the knockout rounds played after the league. */
 	playoff: text('playoff').notNull().default('none'),
+	registrationOpen: integer('registration_open', { mode: 'boolean' }).notNull().default(true),
 	pointsWin: integer('points_win').notNull().default(3),
 	pointsDraw: integer('points_draw').notNull().default(1),
 	pointsLoss: integer('points_loss').notNull().default(0),

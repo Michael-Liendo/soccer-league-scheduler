@@ -57,6 +57,13 @@
       "when": 1792515337299,
       "tag": "0007_playoffs_and_history",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1792587848553,
+      "tag": "0008_registration_open",
+      "breakpoints": true
     }
   ]
 }

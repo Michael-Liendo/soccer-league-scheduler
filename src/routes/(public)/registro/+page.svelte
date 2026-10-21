@@ -51,45 +51,61 @@
 		{#if nextDay}
 			<p class="when">Para el {formatDate(nextDay.date, 'long')}</p>
 		{/if}
-		<p class="help">Aquí solo colocas tu nombre.</p>
-		<p class="notice">
-			<strong>
-				Regístrate solo si vas a jugar y tocar la pelota. Si solo vas a arbitrar o a ver, no te
-				registres.
-			</strong>
-		</p>
-		<p class="notice">
-			Recuerda: los equipos serán aleatorios, para que haya equilibrio y competitividad. Se
-			anunciarán cuando se haga el sorteo.
-		</p>
-		<form
-			class="stack"
-			method="POST"
-			action="?/register"
-			use:enhance={withFeedback({ reset: true })}
-		>
-			<input
-				class="input"
-				name="name"
-				maxlength={LIMITS.playerName}
-				required
-				autocomplete="name"
-				placeholder="Nombre y apellido"
-				aria-label="Tu nombre"
-			/>
-			<div class="btn-row">
-				<button class="btn btn-primary">Registrarme</button>
-			</div>
-		</form>
+		{#if data.league.tournament.registrationOpen}
+			<p class="help">Aquí solo colocas tu nombre.</p>
+			<p class="notice">
+				<strong>
+					Regístrate solo si vas a jugar y tocar la pelota. Si solo vas a arbitrar o a ver, no te
+					registres.
+				</strong>
+			</p>
+			<p class="notice">
+				Recuerda: los equipos serán aleatorios, para que haya equilibrio y competitividad. Se
+				anunciarán cuando se haga el sorteo.
+			</p>
+			<form
+				class="stack"
+				method="POST"
+				action="?/register"
+				use:enhance={withFeedback({ reset: true })}
+			>
+				<input
+					class="input"
+					name="name"
+					maxlength={LIMITS.playerName}
+					required
+					autocomplete="name"
+					placeholder="Nombre y apellido"
+					aria-label="Tu nombre"
+				/>
+				<div class="btn-row">
+					<button class="btn btn-primary">Registrarme</button>
+				</div>
+			</form>
+		{:else}
+			<p class="notice">
+				<strong>La convocatoria está cerrada.</strong> Ya no se aceptan más registros.
+			</p>
+		{/if}
+		{#if data.isOwner}
+			<form method="POST" action="?/toggle" use:enhance={withFeedback()}>
+				<input type="hidden" name="open" value={String(!data.league.tournament.registrationOpen)} />
+				<button class="btn btn-sm">
+					{data.league.tournament.registrationOpen ? 'Cerrar convocatoria' : 'Abrir convocatoria'}
+				</button>
+			</form>
+		{/if}
 	</section>
 
-	<section class="panel">
-		<h2 class="panel-title">¿Conoces a alguien que quiera jugar?</h2>
-		<p class="help">Compártele este link para que se registre él mismo.</p>
-		<div class="btn-row">
-			<button type="button" class="btn" onclick={shareLink}>Compartir link</button>
-		</div>
-	</section>
+	{#if data.league.tournament.registrationOpen}
+		<section class="panel">
+			<h2 class="panel-title">¿Conoces a alguien que quiera jugar?</h2>
+			<p class="help">Compártele este link para que se registre él mismo.</p>
+			<div class="btn-row">
+				<button type="button" class="btn" onclick={shareLink}>Compartir link</button>
+			</div>
+		</section>
+	{/if}
 
 	<section class="panel">
 		<div class="panel-head">

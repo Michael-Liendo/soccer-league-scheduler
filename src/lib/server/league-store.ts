@@ -300,6 +300,7 @@ export function createLeagueStore(db: Db, clock: Clock = systemClock) {
 			cards: CARD_TYPES.filter((card) => row.cards.split(',').includes(card)),
 			doubleGoals: row.doubleGoals,
 			playoff: (isOneOf(PLAYOFF_FORMATS, row.playoff) ? row.playoff : 'none') as PlayoffFormat,
+			registrationOpen: row.registrationOpen,
 			pointsWin: row.pointsWin,
 			pointsDraw: row.pointsDraw,
 			pointsLoss: row.pointsLoss,
@@ -1130,6 +1131,9 @@ export function createLeagueStore(db: Db, clock: Clock = systemClock) {
 			if (tooLong) {
 				throw new LeagueError(`Cada nombre puede tener hasta ${LIMITS.playerName} caracteres.`);
 			}
+			if (!readTournament(db).registrationOpen) {
+				throw new LeagueError('La convocatoria está cerrada.');
+			}
 			return db.transaction((tx) => {
 				const taken = new Set(
 					tx
@@ -1156,6 +1160,14 @@ export function createLeagueStore(db: Db, clock: Clock = systemClock) {
 				}
 				return { added, skipped };
 			});
+		},
+
+		/** Opens or closes the public sign-up form. The list stays as it is. */
+		setRegistrationOpen(open: boolean): void {
+			db.update(tournament)
+				.set({ registrationOpen: open, updatedAt: clock.now() })
+				.where(eq(tournament.id, TOURNAMENT_ID))
+				.run();
 		},
 
 		removeRegistration(id: number): void {

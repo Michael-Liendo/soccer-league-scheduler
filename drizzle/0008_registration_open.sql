@@ -1,0 +1,1 @@
+ALTER TABLE `tournament` ADD `registration_open` integer DEFAULT true NOT NULL;

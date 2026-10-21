@@ -32,6 +32,18 @@ export const actions: Actions = {
 		});
 	},
 
+	/** Opens or closes the form; the list of names stays. */
+	toggle: async ({ request, locals }) => {
+		requireAdmin(locals);
+		const form = await request.formData();
+		return attempt(() => {
+			requireOwner(locals);
+			const open = form.get('open') === 'true';
+			league().setRegistrationOpen(open);
+			return { message: open ? 'Convocatoria abierta' : 'Convocatoria cerrada' };
+		});
+	},
+
 	remove: async ({ request, locals }) => {
 		requireAdmin(locals);
 		const form = await request.formData();

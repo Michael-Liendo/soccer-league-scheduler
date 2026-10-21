@@ -115,6 +115,7 @@ describe('the cards a league uses', () => {
 				cards,
 				doubleGoals: true,
 				playoff: 'none',
+				registrationOpen: true,
 				pointsWin: 3,
 				pointsDraw: 1,
 				pointsLoss: 0,

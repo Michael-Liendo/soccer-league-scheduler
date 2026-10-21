@@ -818,6 +818,16 @@ describe('signing up to play', () => {
 		expect(() => store.addRegistrations(['x'.repeat(41)])).toThrow(/40 caracteres/);
 	});
 
+	it('takes no names while the sign-up is closed', () => {
+		store.addRegistrations(['Ana']);
+		store.setRegistrationOpen(false);
+		expect(store.getLeague().tournament.registrationOpen).toBe(false);
+		expect(() => store.addRegistrations(['Luis'])).toThrow(/convocatoria está cerrada/);
+		store.setRegistrationOpen(true);
+		store.addRegistrations(['Luis']);
+		expect(store.listRegistrations()).toHaveLength(2);
+	});
+
 	it('removes one name or the whole list', () => {
 		store.addRegistrations(['Ana', 'Luis']);
 		const [ana] = store.listRegistrations();

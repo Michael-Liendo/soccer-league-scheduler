@@ -126,6 +126,8 @@ export interface Tournament {
 	/** Whether a goal can be recorded as worth two, for leagues that reward long-range strikes. */
 	doubleGoals: boolean;
 	playoff: PlayoffFormat;
+	/** Whether the public sign-up form still takes names. */
+	registrationOpen: boolean;
 	pointsWin: number;
 	pointsDraw: number;
 	pointsLoss: number;
