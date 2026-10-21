@@ -154,6 +154,15 @@ export const actions: Actions = {
 		});
 	},
 
+	/** The same as on the calendar page, at hand when the last league match ends. */
+	createPlayoffRound: async ({ locals }) => {
+		requireAdmin(locals);
+		return attempt(() => {
+			const { stage } = league().createPlayoffRound();
+			return { message: stage === 'final' ? 'Final armada' : 'Semifinales armadas' };
+		});
+	},
+
 	resetMatch: async ({ request, locals }) => {
 		requireAdmin(locals);
 		const form = await request.formData();

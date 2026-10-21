@@ -3,6 +3,7 @@
  * (first against fourth, second against third) and a final. The better-placed team plays at home
  * and goes through on a draw, so finishing high in the table is worth something.
  */
+import { slotTime } from './schedule.ts';
 import { champion, computeStandings } from './standings.ts';
 import type { KnockoutStage, League, Match } from './types.ts';
 
@@ -68,6 +69,71 @@ export function nextPlayoffRound(league: League): NextPlayoffStep {
 		.map(knockoutWinner)
 		.sort((a, b) => (order.get(a) ?? 0) - (order.get(b) ?? 0));
 	return { round: { stage: 'final', pairs: [{ homeId: first, awayId: second }] } };
+}
+
+/** A knockout match still to be set up, shown ahead of time with who will play it. */
+export interface PlannedKnockout {
+	key: string;
+	stage: KnockoutStage;
+	home: string;
+	away: string;
+	matchDayId: number;
+	/** `HH:MM`, counting on the matches before it starting on time. */
+	time: string | null;
+}
+
+/**
+ * The semifinals and final that are not set up yet, so the schedule shows them from the start:
+ * "1.º de la tabla" against "4.º de la tabla", then the winners. They go right after the last
+ * match of the last day, where `createPlayoffRound` will put them.
+ */
+export function plannedKnockouts(league: League): PlannedKnockout[] {
+	const format = league.tournament.playoff;
+	if (format === 'none' || league.matches.length === 0) return [];
+	if (league.matches.some((match) => match.stage === 'final')) return [];
+
+	const names = new Map(league.teams.map((team) => [team.id, team.name]));
+	const semifinals = league.matches.filter((match) => match.stage === 'semifinal');
+	const winnerOf = (index: number) => {
+		const match = semifinals[index];
+		return match?.status === 'finished'
+			? (names.get(knockoutWinner(match)) ?? '')
+			: `Ganador semifinal ${index + 1}`;
+	};
+
+	const pending: Omit<PlannedKnockout, 'matchDayId' | 'time'>[] = [];
+	if (format === 'final') {
+		pending.push({
+			key: 'final',
+			stage: 'final',
+			home: '1.º de la tabla',
+			away: '2.º de la tabla'
+		});
+	} else {
+		if (semifinals.length === 0) {
+			pending.push(
+				{ key: 'semi-1', stage: 'semifinal', home: '1.º de la tabla', away: '4.º de la tabla' },
+				{ key: 'semi-2', stage: 'semifinal', home: '2.º de la tabla', away: '3.º de la tabla' }
+			);
+		}
+		pending.push({ key: 'final', stage: 'final', home: winnerOf(0), away: winnerOf(1) });
+	}
+
+	const dates = new Map(league.matchDays.map((day) => [day.id, day.date]));
+	const lastDayId = [...league.matches].sort(
+		(a, b) =>
+			(dates.get(a.matchDayId) ?? '').localeCompare(dates.get(b.matchDayId) ?? '') ||
+			a.slot - b.slot
+	)[league.matches.length - 1].matchDayId;
+	const nextSlot =
+		Math.max(
+			...league.matches.filter((match) => match.matchDayId === lastDayId).map((m) => m.slot)
+		) + 1;
+	return pending.map((match, index) => ({
+		...match,
+		matchDayId: lastDayId,
+		time: slotTime(nextSlot + index, league.tournament)
+	}));
 }
 
 export interface Podium {

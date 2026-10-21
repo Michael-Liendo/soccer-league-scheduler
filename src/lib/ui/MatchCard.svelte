@@ -18,10 +18,24 @@
 		isNext?: boolean;
 		/** Current time in epoch milliseconds, to show the minute of a match in play. */
 		now?: number;
+		/** Who will play when the teams are not known yet, such as "1.º de la tabla". */
+		homeLabel?: string;
+		awayLabel?: string;
 		actions?: Snippet;
 	}
 
-	let { match, home, away, venue, order, isNext = false, now, actions }: Props = $props();
+	let {
+		match,
+		home,
+		away,
+		venue,
+		order,
+		isNext = false,
+		now,
+		homeLabel = 'Por definir',
+		awayLabel = 'Por definir',
+		actions
+	}: Props = $props();
 
 	const liveMinute = $derived(
 		match.status === 'live' && now !== undefined && hasClockStarted(match)
@@ -67,7 +81,7 @@
 
 	<div class="teams">
 		<div class="side home">
-			<span class="name" class:unknown={!home}>{home?.name ?? 'Por definir'}</span>
+			<span class="name" class:unknown={!home}>{home?.name ?? homeLabel}</span>
 			{#if home}<span class="team-dot" style:background={home.color}></span>{/if}
 		</div>
 		{#if isPending}
@@ -79,7 +93,7 @@
 		{/if}
 		<div class="side">
 			{#if away}<span class="team-dot" style:background={away.color}></span>{/if}
-			<span class="name" class:unknown={!away}>{away?.name ?? 'Por definir'}</span>
+			<span class="name" class:unknown={!away}>{away?.name ?? awayLabel}</span>
 		</div>
 	</div>
 

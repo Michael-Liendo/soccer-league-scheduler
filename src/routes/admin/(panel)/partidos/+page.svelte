@@ -2,6 +2,7 @@
 	import { enhance } from '$app/forms';
 	import { resolve } from '$app/paths';
 	import MatchEditor from '#lib/admin/MatchEditor.svelte';
+	import { nextPlayoffRound } from '#lib/league/playoffs.ts';
 	import type { Match } from '#lib/league/types.ts';
 	import { nowAndNext, orderOfPlay, teamsById } from '#lib/league/view.ts';
 	import Dialog from '#lib/ui/Dialog.svelte';
@@ -20,6 +21,8 @@
 	const teams = $derived(teamsById(league.teams));
 	const order = $derived(orderOfPlay(league));
 	const upNext = $derived(nowAndNext(league));
+	const nextStep = $derived(nextPlayoffRound(league));
+	const nextRound = $derived(nextStep && 'round' in nextStep ? nextStep.round : null);
 	const editing = $derived(league.matches.find((match) => match.id === editingId));
 	const editingDay = $derived(league.matchDays.find((day) => day.id === editing?.matchDayId));
 
@@ -60,6 +63,27 @@
 					</button>
 				</div>
 			{/if}
+		</section>
+	{/if}
+
+	{#if nextRound}
+		<section class="panel up-next">
+			<p>
+				<strong>
+					{nextRound.stage === 'final' ? 'Ya se puede armar la final' : 'Terminó la liga'}
+				</strong>
+				<span class="muted">· así quedan los cruces según la tabla:</span>
+			</p>
+			<ul class="pairs">
+				{#each nextRound.pairs as pair (pair.homeId)}
+					<li>{teams.get(pair.homeId)?.name} vs {teams.get(pair.awayId)?.name}</li>
+				{/each}
+			</ul>
+			<form method="POST" action="?/createPlayoffRound" use:enhance={withFeedback()}>
+				<button class="btn btn-primary">
+					Armar {nextRound.stage === 'final' ? 'la final' : 'las semifinales'}
+				</button>
+			</form>
 		</section>
 	{/if}
 
@@ -134,6 +158,12 @@
 	.up-next :global(.badge-live) {
 		background: var(--color-live);
 		color: #fff;
+	}
+
+	.pairs {
+		margin: 0;
+		padding-left: 20px;
+		font-weight: 600;
 	}
 
 	.move {

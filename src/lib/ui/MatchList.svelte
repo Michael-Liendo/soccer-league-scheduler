@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 	import { capitalize, formatDate, formatTime, plural } from '#lib/league/format.ts';
+	import { plannedKnockouts, type PlannedKnockout } from '#lib/league/playoffs.ts';
 	import type { League, Match } from '#lib/league/types.ts';
 	import {
 		kickoffRange,
@@ -39,12 +40,37 @@
 	let teamFilter = $state('all');
 
 	const teams = $derived(teamsById(league.teams));
+	const planned = $derived(plannedKnockouts(league));
+
+	/** A stand-in for a knockout match not set up yet, so it shows like the others. */
+	function placeholder(knockout: PlannedKnockout): Match {
+		return {
+			id: 0,
+			matchDayId: knockout.matchDayId,
+			round: 0,
+			leg: 1,
+			slot: 0,
+			time: knockout.time,
+			venue: null,
+			homeTeamId: 0,
+			awayTeamId: 0,
+			status: 'pending',
+			homeScore: 0,
+			awayScore: 0,
+			clockStartedAt: null,
+			clockElapsedMs: 0,
+			forfeitedBy: null,
+			stage: knockout.stage,
+			events: []
+		};
+	}
 	const days = $derived(
 		scheduleByDay(league)
 			.filter(({ day }) => dayFilter === 'all' || String(day.id) === dayFilter)
 			.map(({ day, matches }) => ({
 				day,
 				total: matches.length,
+				knockouts: teamFilter === 'all' ? planned.filter((k) => k.matchDayId === day.id) : [],
 				finished: matches.filter((match) => match.status === 'finished').length,
 				range: kickoffRange(matches),
 				matches: matches.filter(
@@ -54,7 +80,7 @@
 						String(match.awayTeamId) === teamFilter
 				)
 			}))
-			.filter(({ matches }) => matches.length > 0)
+			.filter(({ matches, knockouts }) => matches.length > 0 || knockouts.length > 0)
 	);
 </script>
 
@@ -81,7 +107,7 @@
 	</label>
 </div>
 
-{#each days as { day, total, finished, range, matches } (day.id)}
+{#each days as { day, total, finished, range, matches, knockouts } (day.id)}
 	<section class="day">
 		<header class="day-head">
 			<h2>
@@ -109,6 +135,18 @@
 				{#snippet matchActions()}
 					{@render actions?.(match)}
 				{/snippet}
+			{/each}
+			{#each knockouts as knockout, index (knockout.key)}
+				{@const match = placeholder(knockout)}
+				<MatchCard
+					{match}
+					home={undefined}
+					away={undefined}
+					homeLabel={knockout.home}
+					awayLabel={knockout.away}
+					venue={venueOf(match, league)}
+					order={total + index + 1}
+				/>
 			{/each}
 		</div>
 	</section>
