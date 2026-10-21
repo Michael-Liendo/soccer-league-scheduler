@@ -818,6 +818,14 @@ describe('signing up to play', () => {
 		expect(() => store.addRegistrations(['x'.repeat(41)])).toThrow(/40 caracteres/);
 	});
 
+	it('renames a sign-up without moving it in the list', () => {
+		store.addRegistrations(['Romero, Harold', 'Ana']);
+		const [harold] = store.listRegistrations();
+		store.renameRegistration(harold.id, 'Harold Romero');
+		expect(store.listRegistrations().map((entry) => entry.name)).toEqual(['Harold Romero', 'Ana']);
+		expect(() => store.renameRegistration(harold.id, 'ana')).toThrow(/ya está en la lista/);
+	});
+
 	it('takes no names while the sign-up is closed', () => {
 		store.addRegistrations(['Ana']);
 		store.setRegistrationOpen(false);

@@ -4,7 +4,7 @@
 	import { formatDate } from '#lib/league/format.ts';
 	import { LIMITS } from '#lib/league/types.ts';
 	import Icon from '#lib/ui/Icon.svelte';
-	import { withFeedback } from '#lib/ui/forms.ts';
+	import { submitOnChange, withFeedback } from '#lib/ui/forms.ts';
 	import { toasts } from '#lib/ui/toast.svelte.ts';
 	import type { PageProps } from './$types';
 
@@ -134,7 +134,22 @@
 			<ol class="names">
 				{#each data.registrations as entry (entry.id)}
 					<li>
-						<span>{entry.name}</span>
+						{#if data.isAdmin}
+							<form class="rename" method="POST" action="?/rename" use:enhance={withFeedback()}>
+								<input type="hidden" name="id" value={entry.id} />
+								<input
+									class="input"
+									name="name"
+									value={entry.name}
+									maxlength={LIMITS.playerName}
+									required
+									aria-label="Nombre de {entry.name}"
+									onchange={submitOnChange}
+								/>
+							</form>
+						{:else}
+							<span>{entry.name}</span>
+						{/if}
 						{#if data.isAdmin}
 							<form method="POST" action="?/remove" use:enhance={withFeedback()}>
 								<input type="hidden" name="id" value={entry.id} />
@@ -185,5 +200,16 @@
 	.names form {
 		display: inline;
 		float: right;
+	}
+
+	.names form.rename {
+		float: none;
+	}
+
+	.names .rename .input {
+		display: inline-block;
+		width: calc(100% - 48px);
+		min-height: 34px;
+		padding-block: 4px;
 	}
 </style>

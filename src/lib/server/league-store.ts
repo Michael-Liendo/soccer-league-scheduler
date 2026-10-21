@@ -1170,6 +1170,23 @@ export function createLeagueStore(db: Db, clock: Clock = systemClock) {
 				.run();
 		},
 
+		/** Fixes how a name was written, keeping its place in the list. */
+		renameRegistration(id: number, name: string): void {
+			const value = requireText(name, 'el nombre', LIMITS.playerName);
+			db.transaction((tx) => {
+				const clash = tx
+					.select({ id: registrations.id, name: registrations.name })
+					.from(registrations)
+					.all()
+					.find(
+						(row) =>
+							row.id !== id && row.name.toLocaleLowerCase('es') === value.toLocaleLowerCase('es')
+					);
+				if (clash) throw new LeagueError(`${value} ya está en la lista.`);
+				tx.update(registrations).set({ name: value }).where(eq(registrations.id, id)).run();
+			});
+		},
+
 		removeRegistration(id: number): void {
 			db.delete(registrations).where(eq(registrations.id, id)).run();
 		},

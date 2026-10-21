@@ -1,5 +1,5 @@
 import { fail } from '@sveltejs/kit';
-import { attempt, integer, texts } from '#lib/server/forms.ts';
+import { attempt, integer, text, texts } from '#lib/server/forms.ts';
 import { league } from '#lib/server/league.ts';
 import { createRateLimiter } from '#lib/server/rate-limit.ts';
 import { requireAdmin, requireOwner } from '#lib/server/session.ts';
@@ -41,6 +41,15 @@ export const actions: Actions = {
 			const open = form.get('open') === 'true';
 			league().setRegistrationOpen(open);
 			return { message: open ? 'Convocatoria abierta' : 'Convocatoria cerrada' };
+		});
+	},
+
+	rename: async ({ request, locals }) => {
+		requireAdmin(locals);
+		const form = await request.formData();
+		return attempt(() => {
+			league().renameRegistration(integer(form, 'id'), text(form, 'name'));
+			return { message: 'Nombre corregido' };
 		});
 	},
 
