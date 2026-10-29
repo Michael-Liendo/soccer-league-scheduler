@@ -163,10 +163,33 @@ describe('timing', () => {
 });
 
 describe('planOptions', () => {
-	it('describes one to eight legs', () => {
+	it('describes the short leagues and one to eight legs', () => {
 		const options = planOptions(6, 4, timing);
-		expect(options.map((option) => option.legs)).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
+		expect(options.map((option) => option.key)).toEqual([
+			'1/2',
+			'1/3',
+			'1/4',
+			'1',
+			'2',
+			'3',
+			'4',
+			'5',
+			'6',
+			'7',
+			'8'
+		]);
 		expect(options.filter((option) => option.recommended)).toHaveLength(1);
+	});
+
+	it('offers a short league where every team plays the same few matches', () => {
+		const evening = { startTime: '19:20', endTime: '22:30', matchMinutes: 8, breakMinutes: 2 };
+		expect(planOptions(6, 1, evening).find((option) => option.key === '1/3')).toMatchObject({
+			totalMatches: 9,
+			gamesPerTeam: 3,
+			matchesPerDay: [9]
+		});
+		// With an odd number of teams someone would rest and play less, so there is none.
+		expect(planOptions(5, 1, evening).some((option) => option.rounds > 0)).toBe(false);
 	});
 
 	it('has room for eight legs when four teams play short matches back to back', () => {
@@ -227,6 +250,17 @@ describe('buildSchedule', () => {
 			schedule.filter((match) => match.dayIndex === dayIndex).sort((a, b) => a.slot - b.slot)
 		);
 	}
+
+	it('plays only some rounds in a short league, with no rival repeated', () => {
+		const schedule = buildSchedule({ teamIds: teams(6), legs: 1, rounds: 3, matchesPerDay: [9] });
+		expect(schedule).toHaveLength(9);
+		for (const id of teams(6)) {
+			const rivals = schedule.flatMap((match) =>
+				match.homeId === id ? [match.awayId] : match.awayId === id ? [match.homeId] : []
+			);
+			expect(new Set(rivals).size).toBe(3);
+		}
+	});
 
 	it('puts the requested number of matches on each day, in consecutive slots', () => {
 		const schedule = buildSchedule({ teamIds: teams(6), legs: 2, matchesPerDay: [9, 9, 6, 6] });

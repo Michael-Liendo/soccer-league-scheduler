@@ -17,6 +17,8 @@ export const tournament = sqliteTable('tournament', {
 	pointsDraw: integer('points_draw').notNull().default(1),
 	pointsLoss: integer('points_loss').notNull().default(0),
 	legs: integer('legs').notNull().default(1),
+	/** Rounds played in a short league, where each team meets only some rivals; 0 plays them all. */
+	rounds: integer('rounds').notNull().default(0),
 	startTime: text('start_time').notNull().default('09:00'),
 	endTime: text('end_time').notNull().default('13:00'),
 	matchMinutes: integer('match_minutes').notNull().default(20),

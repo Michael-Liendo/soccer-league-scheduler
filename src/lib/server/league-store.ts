@@ -9,7 +9,13 @@ import {
 } from '#lib/league/format.ts';
 import { elapsedMs, MAX_CLOCK_MS, minuteOfPlay } from '#lib/league/clock.ts';
 import { nextTeamColor } from '#lib/league/labels.ts';
-import { buildSchedule, slotTime, totalMatches, type PlanTiming } from '#lib/league/schedule.ts';
+import {
+	buildSchedule,
+	isValidFormat,
+	slotTime,
+	totalMatches,
+	type PlanTiming
+} from '#lib/league/schedule.ts';
 import { archiveSnapshot, type ArchivedTournament } from '#lib/league/archive.ts';
 import { nextPlayoffRound } from '#lib/league/playoffs.ts';
 import {
@@ -78,6 +84,7 @@ const DEFAULT_TOURNAMENT = {
 	pointsDraw: 1,
 	pointsLoss: 0,
 	legs: 1,
+	rounds: 0,
 	startTime: '09:00',
 	endTime: '13:00',
 	matchMinutes: 20,
@@ -121,6 +128,8 @@ export interface GenerateInput {
 	/** Match days and timetable to save before generating. Omit to keep the current ones. */
 	plan?: PlanInput;
 	legs: number;
+	/** Rounds of a short league; 0 or absent plays every round. */
+	rounds?: number;
 	/** Matches to play on each day, in date order (after applying `plan`). */
 	matchesPerDay: number[];
 	/** Draw the fixtures at random instead of using the fixed order. */
@@ -305,6 +314,7 @@ export function createLeagueStore(db: Db, clock: Clock = systemClock) {
 			pointsDraw: row.pointsDraw,
 			pointsLoss: row.pointsLoss,
 			legs: row.legs,
+			rounds: row.rounds,
 			startTime: row.startTime,
 			endTime: row.endTime,
 			matchMinutes: row.matchMinutes,
@@ -726,6 +736,7 @@ export function createLeagueStore(db: Db, clock: Clock = systemClock) {
 		 */
 		generateSchedule(input: GenerateInput): { matchCount: number } {
 			const legs = requireIntegerInRange(input.legs, 'El número de vueltas', 1, LIMITS.maxLegs);
+			const rounds = input.rounds ?? 0;
 			const plan = input.plan ? validatePlan(input.plan) : undefined;
 
 			return db.transaction((tx) => {
@@ -738,6 +749,9 @@ export function createLeagueStore(db: Db, clock: Clock = systemClock) {
 				if (teamIds.length < 2) {
 					throw new LeagueError('Se necesitan al menos 2 equipos para armar el calendario.');
 				}
+				if (!isValidFormat(teamIds.length, legs, rounds)) {
+					throw new LeagueError('Ese formato no sirve para esta cantidad de equipos.');
+				}
 
 				// The old matches go first so that the plan is free to drop the days they were on.
 				tx.delete(matches).run();
@@ -747,7 +761,7 @@ export function createLeagueStore(db: Db, clock: Clock = systemClock) {
 				if (input.matchesPerDay.length !== days.length) {
 					throw new LeagueError('Los días de juego cambiaron. Recarga la página.');
 				}
-				const expected = totalMatches(teamIds.length, legs);
+				const expected = totalMatches(teamIds.length, legs, rounds);
 				const planned = input.matchesPerDay.reduce((sum, value) => sum + value, 0);
 				const validCounts = input.matchesPerDay.every(
 					(value) => Number.isInteger(value) && value >= 0
@@ -762,6 +776,7 @@ export function createLeagueStore(db: Db, clock: Clock = systemClock) {
 				const schedule = buildSchedule({
 					teamIds,
 					legs,
+					rounds,
 					matchesPerDay: input.matchesPerDay,
 					rng: input.random ? Math.random : undefined
 				});
@@ -782,7 +797,7 @@ export function createLeagueStore(db: Db, clock: Clock = systemClock) {
 						)
 						.run();
 				}
-				tx.update(tournament).set({ legs }).where(eq(tournament.id, TOURNAMENT_ID)).run();
+				tx.update(tournament).set({ legs, rounds }).where(eq(tournament.id, TOURNAMENT_ID)).run();
 				touch(tx);
 				return { matchCount: schedule.length };
 			});

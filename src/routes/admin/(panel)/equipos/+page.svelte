@@ -21,7 +21,8 @@
 		isScheduleOutdated(
 			league.teams.map((team) => team.id),
 			league.tournament.legs,
-			league.matches
+			league.matches,
+			league.tournament.rounds
 		)
 	);
 </script>

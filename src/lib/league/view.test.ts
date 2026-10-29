@@ -120,6 +120,7 @@ describe('the cards a league uses', () => {
 				pointsDraw: 1,
 				pointsLoss: 0,
 				legs: 1,
+				rounds: 0,
 				startTime: '19:30',
 				endTime: '21:30',
 				matchMinutes: 10,

@@ -59,6 +59,7 @@ export const actions: Actions = {
 			const { matchCount } = league().generateSchedule({
 				...readPlanner(form),
 				legs: integer(form, 'legs'),
+				rounds: text(form, 'rounds') ? integer(form, 'rounds') : 0,
 				random
 			});
 			const total = plural(matchCount, 'partido');

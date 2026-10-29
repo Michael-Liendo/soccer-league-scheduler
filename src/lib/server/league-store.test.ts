@@ -208,6 +208,21 @@ describe('generating the calendar', () => {
 		expect(store.getLeague().matches).toHaveLength(12);
 	});
 
+	it('plays a short league where each team meets only some rivals', () => {
+		addTeams(6);
+		const result = store.generateSchedule({
+			legs: 1,
+			rounds: 3,
+			matchesPerDay: [3, 3, 3, 0],
+			random: true
+		});
+		expect(result.matchCount).toBe(9);
+		expect(store.getLeague().tournament).toMatchObject({ legs: 1, rounds: 3 });
+		expect(() =>
+			store.generateSchedule({ legs: 2, rounds: 3, matchesPerDay: [3, 3, 3, 0], random: false })
+		).toThrow(/formato no sirve/);
+	});
+
 	it('needs at least two teams', () => {
 		addTeams(1);
 		expect(() =>

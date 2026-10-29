@@ -46,6 +46,7 @@ function league(playoff: PlayoffFormat, matches: Match[]): League {
 			pointsDraw: 1,
 			pointsLoss: 0,
 			legs: 1,
+			rounds: 0,
 			startTime: '19:00',
 			endTime: '22:00',
 			matchMinutes: 8,

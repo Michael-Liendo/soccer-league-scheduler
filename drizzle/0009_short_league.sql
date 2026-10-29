@@ -1,0 +1,1 @@
+ALTER TABLE `tournament` ADD `rounds` integer DEFAULT 0 NOT NULL;

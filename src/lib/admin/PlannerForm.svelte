@@ -10,12 +10,13 @@
 		isIsoDate,
 		plural
 	} from '#lib/league/format.ts';
-	import { LEG_DESCRIPTIONS, LEG_LABELS } from '#lib/league/labels.ts';
+	import { formatDescription, formatLabel } from '#lib/league/labels.ts';
 	import {
 		dayCapacity,
 		dayEndTime,
 		distributeByRounds,
 		distributeEvenly,
+		formatKey,
 		planOptions,
 		suggestMatchesPerDay,
 		totalMatches,
@@ -52,25 +53,30 @@
 		return { startTime, endTime, matchMinutes, breakMinutes };
 	}
 
-	function initialLegs(): number {
-		if (league.matches.length > 0) return league.tournament.legs;
+	/** The format in use, or the recommended one before there is a calendar. */
+	function initialFormat(): { legs: number; rounds: number } {
+		const { legs, rounds } = league.tournament;
+		if (league.matches.length > 0) return { legs, rounds };
 		const options = planOptions(league.teams.length, league.matchDays.length, initialTiming());
-		return options.find((option) => option.recommended)?.legs ?? 1;
+		const best = options.find((option) => option.recommended);
+		return best ? { legs: best.legs, rounds: best.rounds } : { legs: 1, rounds: 0 };
 	}
 
 	function initialRows(): DayRow[] {
-		const legs = initialLegs();
+		const { legs, rounds } = initialFormat();
 		const played = league.matchDays.map(
 			(day) => league.matches.filter((match) => match.matchDayId === day.id).length
 		);
 		const calendarMatchesFormat =
 			league.matches.length > 0 &&
-			league.matches.length === totalMatches(league.teams.length, legs);
+			league.matches.filter((match) => match.stage === 'league').length ===
+				totalMatches(league.teams.length, legs, rounds);
 		const suggested = suggestMatchesPerDay(
 			league.teams.length,
 			legs,
 			league.matchDays.length,
-			initialTiming()
+			initialTiming(),
+			rounds
 		).matchesPerDay;
 		return league.matchDays.map((day, index) => ({
 			key: nextKey++,
@@ -81,7 +87,7 @@
 	}
 
 	let timing = $state(initialTiming());
-	let legs = $state(initialLegs());
+	let formatChoice = $state(formatKey(initialFormat().legs, initialFormat().rounds));
 	let rows = $state(initialRows());
 
 	let form: HTMLFormElement | undefined = $state();
@@ -100,14 +106,18 @@
 	);
 	const capacity = $derived(timingIsValid ? dayCapacity(timing) : 0);
 	const options = $derived(timingIsValid ? planOptions(teamCount, rows.length, timing) : []);
+	const legs = $derived(Number(formatChoice.split('/')[0]) || 1);
+	const rounds = $derived(Number(formatChoice.split('/')[1] ?? 0));
 	// Longer formats stay out of the way unless the days have room for them or one is in use.
 	const offeredOptions = $derived(
-		options.filter((option) => option.legs <= USUAL_MAX_LEGS || option.fits || option.legs === legs)
+		options.filter(
+			(option) => option.legs <= USUAL_MAX_LEGS || option.fits || option.key === formatChoice
+		)
 	);
-	const expectedTotal = $derived(totalMatches(teamCount, legs));
+	const expectedTotal = $derived(totalMatches(teamCount, legs, rounds));
 	const plannedTotal = $derived(rows.reduce((sum, row) => sum + (row.matches ?? 0), 0));
 	const difference = $derived(expectedTotal - plannedTotal);
-	const wholeRounds = $derived(distributeByRounds(teamCount, legs, rows.length));
+	const wholeRounds = $derived(distributeByRounds(teamCount, legs, rows.length, rounds));
 	const canGenerate = $derived(teamCount >= 2 && timingIsValid && difference === 0 && !pending);
 
 	function setMatchesPerDay(matchesPerDay: readonly number[]) {
@@ -117,7 +127,9 @@
 	/** Fills the matches per day with the suggestion for the selected format and timetable. */
 	function useSuggestion() {
 		if (!timingIsValid || teamCount < 2) return;
-		setMatchesPerDay(suggestMatchesPerDay(teamCount, legs, rows.length, timing).matchesPerDay);
+		setMatchesPerDay(
+			suggestMatchesPerDay(teamCount, legs, rows.length, timing, rounds).matchesPerDay
+		);
 	}
 
 	function sortRows() {
@@ -286,23 +298,27 @@
 			<div class="empty">Añade al menos 2 equipos para ver los formatos posibles.</div>
 		{:else}
 			<div class="options">
-				{#each offeredOptions as option (option.legs)}
-					<label class="option" class:selected={legs === option.legs}>
+				<input type="hidden" name="legs" value={legs} />
+				<input type="hidden" name="rounds" value={rounds} />
+				{#each offeredOptions as option (option.key)}
+					<label class="option" class:selected={formatChoice === option.key}>
 						<input
 							class="visually-hidden"
 							type="radio"
-							name="legs"
-							value={option.legs}
-							bind:group={legs}
+							name="format"
+							value={option.key}
+							bind:group={formatChoice}
 							onchange={useSuggestion}
 						/>
 						<span class="option-title">
-							{LEG_LABELS[option.legs]}
+							{formatLabel(option.legs, option.rounds)}
 							{#if option.recommended}
 								<span class="badge badge-accent"><Icon name="star" size={12} /> Recomendado</span>
 							{/if}
 						</span>
-						<span class="help option-description">{LEG_DESCRIPTIONS[option.legs]}</span>
+						<span class="help option-description">
+							{formatDescription(option.legs, option.rounds, teamCount)}
+						</span>
 						<span class="option-stats">
 							<span><strong>{option.totalMatches}</strong> partidos</span>
 							<span><strong>{option.gamesPerTeam}</strong> por equipo</span>

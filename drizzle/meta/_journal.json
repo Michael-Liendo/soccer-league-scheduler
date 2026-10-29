@@ -64,6 +64,13 @@
       "when": 1792587848553,
       "tag": "0008_registration_open",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1793298132210,
+      "tag": "0009_short_league",
+      "breakpoints": true
     }
   ]
 }

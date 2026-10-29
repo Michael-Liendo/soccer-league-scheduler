@@ -133,6 +133,8 @@ export interface Tournament {
 	pointsLoss: number;
 	/** How many times each pair of teams meets. */
 	legs: number;
+	/** Rounds played in a short league, where each team meets only some rivals; 0 plays them all. */
+	rounds: number;
 	/** `HH:MM` */
 	startTime: string;
 	/** `HH:MM` */

@@ -68,6 +68,17 @@ export const LEG_DESCRIPTIONS: Record<number, string> = {
 	8: 'Ocho partidos contra cada rival.'
 };
 
+/** The name of a format: "Una vuelta", or "Liga corta · 3 partidos" when it plays some rounds. */
+export function formatLabel(legs: number, rounds: number): string {
+	return rounds > 0 ? `Liga corta · ${rounds} partidos` : LEG_LABELS[legs];
+}
+
+export function formatDescription(legs: number, rounds: number, teamCount: number): string {
+	return rounds > 0
+		? `Cada equipo enfrenta a ${rounds} de sus ${teamCount - 1} rivales, sin repetir.`
+		: LEG_DESCRIPTIONS[legs];
+}
+
 /** Colours offered to new teams, in the order they are handed out. */
 export const TEAM_COLORS = [
 	'#16a34a',

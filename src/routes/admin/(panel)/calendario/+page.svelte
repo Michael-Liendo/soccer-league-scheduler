@@ -7,7 +7,7 @@
 	import { PLAYOFF_FORMATS } from '#lib/league/types.ts';
 	import { submitOnChange, withFeedback } from '#lib/ui/forms.ts';
 	import { formatDate, plural } from '#lib/league/format.ts';
-	import { LEG_LABELS } from '#lib/league/labels.ts';
+	import { formatLabel } from '#lib/league/labels.ts';
 	import { gamesPerTeamByDay, isScheduleOutdated } from '#lib/league/schedule.ts';
 	import type { PageProps } from './$types';
 
@@ -15,7 +15,9 @@
 
 	const league = $derived(data.league);
 	const teamIds = $derived(league.teams.map((team) => team.id));
-	const outdated = $derived(isScheduleOutdated(teamIds, league.tournament.legs, league.matches));
+	const outdated = $derived(
+		isScheduleOutdated(teamIds, league.tournament.legs, league.matches, league.tournament.rounds)
+	);
 	const knockoutMatches = $derived(league.matches.filter((match) => match.stage !== 'league'));
 	const nextStep = $derived(nextPlayoffRound(league));
 	const gamesByTeam = $derived(
@@ -129,9 +131,10 @@
 				<h2 class="panel-title">Calendario actual</h2>
 				{#if league.matches.length > 0}
 					<p class="help">
-						{plural(league.matches.length, 'partido')} · {LEG_LABELS[
-							league.tournament.legs
-						].toLowerCase()}. La tabla muestra cuántos partidos juega cada equipo en cada jornada.
+						{plural(league.matches.length, 'partido')} · {formatLabel(
+							league.tournament.legs,
+							league.tournament.rounds
+						).toLowerCase()}. La tabla muestra cuántos partidos juega cada equipo en cada jornada.
 					</p>
 				{/if}
 			</div>

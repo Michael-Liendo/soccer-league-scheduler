@@ -38,7 +38,11 @@ export interface PlanTiming {
 export type Distribution = 'rounds' | 'even';
 
 export interface PlanOption {
+	/** Identifies the format among the options: `"2"` for two legs, `"1/3"` for three rounds. */
+	key: string;
 	legs: number;
+	/** Rounds actually played, for a short league where not everyone meets; 0 plays them all. */
+	rounds: number;
 	totalMatches: number;
 	totalRounds: number;
 	/** Matches each team plays over the whole tournament. */
@@ -78,12 +82,28 @@ export function roundsPerLeg(teamCount: number): number {
 	return teamCount % 2 === 0 ? teamCount - 1 : teamCount;
 }
 
-export function totalRounds(teamCount: number, legs: number): number {
-	return roundsPerLeg(teamCount) * legs;
+/**
+ * Short leagues play only some rounds of a single leg, so each team meets a few rivals instead
+ * of all of them. They are offered with an even number of teams, where nobody rests a round and
+ * every team ends up with the same number of matches.
+ */
+export function shortRoundOptions(teamCount: number): number[] {
+	if (teamCount < 4 || teamCount % 2 === 1) return [];
+	return Array.from({ length: roundsPerLeg(teamCount) - 2 }, (_, index) => index + 2);
 }
 
-export function totalMatches(teamCount: number, legs: number): number {
+export function isValidFormat(teamCount: number, legs: number, rounds: number): boolean {
+	return rounds === 0 || (legs === 1 && shortRoundOptions(teamCount).includes(rounds));
+}
+
+/** `rounds` limits a single leg to that many rounds; 0 plays every round of every leg. */
+export function totalRounds(teamCount: number, legs: number, rounds = 0): number {
+	return rounds > 0 ? rounds : roundsPerLeg(teamCount) * legs;
+}
+
+export function totalMatches(teamCount: number, legs: number, rounds = 0): number {
 	if (teamCount < 2) return 0;
+	if (rounds > 0) return rounds * matchesPerRound(teamCount);
 	return ((teamCount * (teamCount - 1)) / 2) * legs;
 }
 
@@ -93,7 +113,12 @@ export function totalMatches(teamCount: number, legs: number): number {
  *
  * Passing `rng` draws the fixtures: the team order and the order of the rounds are shuffled.
  */
-export function buildRounds(teamIds: readonly number[], legs: number, rng?: Rng): Pairing[][] {
+export function buildRounds(
+	teamIds: readonly number[],
+	legs: number,
+	rng?: Rng,
+	roundLimit = 0
+): Pairing[][] {
 	if (teamIds.length < 2 || legs < 1) return [];
 
 	const seats: (number | null)[] = rng ? shuffled(teamIds, rng) : [...teamIds];
@@ -134,7 +159,7 @@ export function buildRounds(teamIds: readonly number[], legs: number, rng?: Rng)
 			);
 		}
 	}
-	return rounds;
+	return roundLimit > 0 ? rounds.slice(0, roundLimit) : rounds;
 }
 
 /** Splits `total` matches over the days as evenly as possible, earlier days first. */
@@ -152,9 +177,10 @@ export function distributeEvenly(total: number, dayCount: number): number[] {
 export function distributeByRounds(
 	teamCount: number,
 	legs: number,
-	dayCount: number
+	dayCount: number,
+	roundLimit = 0
 ): number[] | null {
-	const rounds = totalRounds(teamCount, legs);
+	const rounds = totalRounds(teamCount, legs, roundLimit);
 	if (dayCount < 1 || rounds < dayCount) return null;
 	const perRound = matchesPerRound(teamCount);
 	return distributeEvenly(rounds, dayCount).map((roundsThatDay) => roundsThatDay * perRound);
@@ -200,15 +226,16 @@ export function suggestMatchesPerDay(
 	teamCount: number,
 	legs: number,
 	dayCount: number,
-	timing: PlanTiming
+	timing: PlanTiming,
+	roundLimit = 0
 ): { matchesPerDay: number[]; distribution: Distribution } {
 	const capacity = dayCapacity(timing);
-	const byRounds = distributeByRounds(teamCount, legs, dayCount);
+	const byRounds = distributeByRounds(teamCount, legs, dayCount, roundLimit);
 	if (byRounds && Math.max(...byRounds) <= capacity) {
 		return { matchesPerDay: byRounds, distribution: 'rounds' };
 	}
 	return {
-		matchesPerDay: distributeEvenly(totalMatches(teamCount, legs), dayCount),
+		matchesPerDay: distributeEvenly(totalMatches(teamCount, legs, roundLimit), dayCount),
 		distribution: 'even'
 	};
 }
@@ -222,14 +249,26 @@ export function planOptions(teamCount: number, dayCount: number, timing: PlanTim
 	if (teamCount < 2 || dayCount < 1) return [];
 	const capacity = dayCapacity(timing);
 
-	const options: PlanOption[] = LEG_OPTIONS.map((legs) => {
-		const { matchesPerDay, distribution } = suggestMatchesPerDay(teamCount, legs, dayCount, timing);
-		const longestDayMatches = Math.max(...matchesPerDay);
-		const gamesPerTeam = (teamCount - 1) * legs;
-		return {
+	const formats = [
+		...shortRoundOptions(teamCount).map((rounds) => ({ legs: 1, rounds })),
+		...LEG_OPTIONS.map((legs) => ({ legs, rounds: 0 }))
+	];
+	const options: PlanOption[] = formats.map(({ legs, rounds }) => {
+		const { matchesPerDay, distribution } = suggestMatchesPerDay(
+			teamCount,
 			legs,
-			totalMatches: totalMatches(teamCount, legs),
-			totalRounds: totalRounds(teamCount, legs),
+			dayCount,
+			timing,
+			rounds
+		);
+		const longestDayMatches = Math.max(...matchesPerDay);
+		const gamesPerTeam = rounds > 0 ? rounds : (teamCount - 1) * legs;
+		return {
+			key: formatKey(legs, rounds),
+			legs,
+			rounds,
+			totalMatches: totalMatches(teamCount, legs, rounds),
+			totalRounds: totalRounds(teamCount, legs, rounds),
 			gamesPerTeam,
 			gamesPerTeamPerDay: gamesPerTeam / dayCount,
 			matchesPerDay,
@@ -244,10 +283,12 @@ export function planOptions(teamCount: number, dayCount: number, timing: PlanTim
 	const isEvenAcrossDays = (option: PlanOption) =>
 		Math.max(...option.matchesPerDay) === Math.min(...option.matchesPerDay);
 
-	const fitting = options.filter((option) => option.fits);
+	// Short leagues are there when asked for; the recommendation stays a full league.
+	const full = options.filter((option) => option.rounds === 0);
+	const fitting = full.filter((option) => option.fits);
 	const best =
 		fitting.length === 0
-			? options[0]
+			? full[0]
 			: [...fitting].sort(
 					(a, b) =>
 						distanceToIdeal(a.gamesPerTeamPerDay) - distanceToIdeal(b.gamesPerTeamPerDay) ||
@@ -258,9 +299,16 @@ export function planOptions(teamCount: number, dayCount: number, timing: PlanTim
 	return options;
 }
 
+/** See `PlanOption.key`. */
+export function formatKey(legs: number, rounds: number): string {
+	return rounds > 0 ? `${legs}/${rounds}` : String(legs);
+}
+
 export interface ScheduleInput {
 	teamIds: readonly number[];
 	legs: number;
+	/** Plays only this many rounds of the leg, for a short league; 0 or absent plays them all. */
+	rounds?: number;
 	/** Number of matches to play on each day. Must add up to the total for the format. */
 	matchesPerDay: readonly number[];
 	/** Pass a random number generator to draw the fixtures instead of using the fixed order. */
@@ -279,10 +327,11 @@ const NOT_PLAYED_TODAY = Number.MAX_SAFE_INTEGER;
 export function buildSchedule({
 	teamIds,
 	legs,
+	rounds: roundLimit = 0,
 	matchesPerDay,
 	rng
 }: ScheduleInput): ScheduledMatch[] {
-	const expected = totalMatches(teamIds.length, legs);
+	const expected = totalMatches(teamIds.length, legs, roundLimit);
 	const planned = matchesPerDay.reduce((sum, count) => sum + count, 0);
 	if (matchesPerDay.some((count) => !Number.isInteger(count) || count < 0)) {
 		throw new RangeError('Matches per day must be non-negative integers');
@@ -291,7 +340,7 @@ export function buildSchedule({
 		throw new RangeError(`Matches per day add up to ${planned}, expected ${expected}`);
 	}
 
-	const rounds = buildRounds(teamIds, legs, rng);
+	const rounds = buildRounds(teamIds, legs, rng, roundLimit);
 	const schedule: ScheduledMatch[] = [];
 	let nextRound = 0;
 	let pool: Pairing[] = [];
@@ -355,12 +404,13 @@ interface PlayedMatch {
 export function isScheduleOutdated(
 	teamIds: readonly number[],
 	legs: number,
-	allMatches: readonly PlayedMatch[]
+	allMatches: readonly PlayedMatch[],
+	rounds = 0
 ): boolean {
 	// Knockout rounds come on top of the league calendar and do not change its size.
 	const matches = allMatches.filter((match) => (match.stage ?? 'league') === 'league');
 	if (matches.length === 0) return false;
-	if (matches.length !== totalMatches(teamIds.length, legs)) return true;
+	if (matches.length !== totalMatches(teamIds.length, legs, rounds)) return true;
 	const withMatches = new Set(matches.flatMap((match) => [match.homeTeamId, match.awayTeamId]));
 	return teamIds.some((teamId) => !withMatches.has(teamId));
 }
